@@ -108,7 +108,7 @@ S3_BUCKET_NAME=your_bucket
 
 ## 👨‍💻 Author
 
-Soumodeep Dutta , Valentino Gomes
+Soumodeep Dutta 
 
 ---
 
