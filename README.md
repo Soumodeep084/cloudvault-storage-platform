@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ☁️ CloudVault – Smart File Sharing & Backup Platform
 
-## Getting Started
+CloudVault is a cloud-based web application that allows users to upload, manage, and securely share files. It demonstrates real-world cloud computing concepts using AWS services.
 
-First, run the development server:
+---
+
+## 🚀 Features
+
+* 🔐 User Authentication (Clerk)
+* 📤 File Upload & Storage
+* 📥 File Download
+* 🔗 Secure File Sharing via Link
+* 🕓 Version History Management
+* 📊 Admin Dashboard
+* ☁️ Cloud Backup System
+
+---
+
+## 🏗️ Tech Stack
+
+### Frontend
+
+* Next.js (App Router)
+* TypeScript
+* Tailwind CSS
+* Clerk Authentication
+
+### Cloud (AWS)
+
+* Amazon EC2 (IaaS)
+* AWS Elastic Beanstalk (PaaS)
+* Amazon RDS (DBaaS)
+* Amazon S3 (Storage-as-a-Service)
+* AWS IAM & AWS WAF (Security-as-a-Service)
+
+---
+
+## ☁️ AWS Architecture
+
+User → Next.js App → AWS Services
+
+* Files stored in Amazon S3
+* User data stored in Amazon RDS
+* Backend hosted on EC2 / Elastic Beanstalk
+* Authentication secured via Clerk & AWS IAM
+
+---
+
+## 📂 Project Structure
+
+
+
+---
+
+## ⚙️ Installation
 
 ```bash
+git clone https://github.com/Soumodeep084/cloudvault-aws-file-sharing.git
+cd cloudvault-aws-file-sharing
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🔐 Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a `.env` file:
 
-## Learn More
+```env
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_key
+CLERK_SECRET_KEY=your_secret
+DATABASE_URL=your_rds_url
+AWS_ACCESS_KEY=your_aws_key
+AWS_SECRET_KEY=your_aws_secret
+AWS_REGION=ap-south-1
+S3_BUCKET_NAME=your_bucket
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📸 Screenshots
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+(Add screenshots here for submission)
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🎯 Cloud Concepts Covered
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Cloud Model           | Implementation        |
+| --------------------- | --------------------- |
+| IaaS                  | Amazon EC2            |
+| PaaS                  | AWS Elastic Beanstalk |
+| DBaaS                 | Amazon RDS            |
+| Storage as a Service  | Amazon S3             |
+| Security as a Service | AWS IAM               |
+
+---
+
+## 📌 Future Enhancements
+
+* Real-time collaboration
+* File encryption
+* AI-based file categorization
+* Mobile app support
+
+---
+
+## 👨‍💻 Author
+
+Soumodeep Dutta , Valentino Gomes
+
+---
+
+## 📄 License
+
+This project is for educational purposes.
