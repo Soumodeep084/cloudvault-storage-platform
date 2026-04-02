@@ -37,7 +37,7 @@ export default async function DashboardHome() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-primary-foreground">
       <div>
         <h1 className="text-2xl font-bold">
           Welcome back, {user?.name?.split(" ")[0]}!
@@ -49,7 +49,7 @@ export default async function DashboardHome() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <Card key={stat.label}>
+          <Card key={stat.label} className="bg-white">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
                 <stat.icon className={`h-5 w-5 ${stat.color}`} />
@@ -63,7 +63,7 @@ export default async function DashboardHome() {
         ))}
       </div>
 
-      <Card>
+      <Card className="bg-white">
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Recent Files</CardTitle>
           <Button variant="subtle" size="sm" asChild>

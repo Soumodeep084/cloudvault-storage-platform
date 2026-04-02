@@ -48,8 +48,8 @@ export function DashboardNavbar({ user }: NavbarProps) {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 flex items-center px-4 gap-4 sticky top-0 z-30">
-      <SidebarTrigger className="shrink-0" />
+    <header className="h-16 border-b border-border bg-white flex items-center px-4 gap-4 sticky top-0 z-30">
+      <SidebarTrigger className="shrink-0" variant="subtle" />
 
       <div className="flex-1 max-w-md hidden sm:block">
         <div className="relative">
@@ -69,6 +69,11 @@ export function DashboardNavbar({ user }: NavbarProps) {
         >
           <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+        </Button>
+
+        <Button variant="subtle" size="icon" className="relative">
+          <Bell className="h-4 w-4" />
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-primary rounded-full" />
         </Button>
 
         <DropdownMenu>

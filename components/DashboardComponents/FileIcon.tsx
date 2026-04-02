@@ -1,5 +1,12 @@
-import { FileText, Image, Video, FileSpreadsheet, Archive, File } from 'lucide-react';
-import { FileItem } from '@/types/index';
+import {
+  FileText,
+  Image,
+  Video,
+  FileSpreadsheet,
+  Archive,
+  File,
+} from "lucide-react";
+import { FileItem } from "@/types/index";
 
 const iconMap = {
   pdf: FileText,
@@ -12,17 +19,42 @@ const iconMap = {
 };
 
 const colorMap = {
-  pdf: 'text-destructive',
-  document: 'text-primary',
-  image: 'text-success',
-  video: 'text-warning',
-  spreadsheet: 'text-success',
-  archive: 'text-muted-foreground',
-  other: 'text-muted-foreground',
+  pdf: "text-destructive",
+  document: "text-primary",
+  image: "text-success",
+  video: "text-warning",
+  spreadsheet: "text-success",
+  archive: "text-muted-foreground",
+  other: "text-muted-foreground",
 };
 
-export function FileIcon({ type, className = 'h-5 w-5' }: { type: FileItem['type']; className?: string }) {
+// New map to create the background box effect from the image
+const bgMap = {
+  pdf: "bg-destructive/10",
+  document: "bg-primary/10",
+  image: "bg-success/10",
+  video: "bg-warning/10",
+  spreadsheet: "bg-success/10",
+  archive: "bg-muted/10",
+  other: "bg-muted/10",
+};
+
+export function FileIcon({
+  type,
+  className = "h-5 w-5",
+}: {
+  type: FileItem["type"];
+  className?: string;
+}) {
   const Icon = iconMap[type] || File;
-  const color = colorMap[type] || '';
-  return <Icon className={`${className} ${color}`} />;
+  const color = colorMap[type] || "";
+  const bgColor = bgMap[type] || "bg-muted/10";
+
+  return (
+    <div
+      className={`p-2 rounded-lg ${bgColor} flex items-center justify-center shrink-0`}
+    >
+      <Icon className={`${className} ${color}`} />
+    </div>
+  );
 }

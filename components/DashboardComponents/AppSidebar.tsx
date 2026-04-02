@@ -47,7 +47,9 @@ const mainItems = [
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
 
-const adminItems = [{ title: "Admin Panel", url: "/admin", icon: Shield }];
+const adminItems = [
+  { title: "Admin Panel", url: "/dashboard/admin", icon: Shield },
+];
 
 export function AppSidebar({ user }: AppSidebarProps) {
   // Accept user here
@@ -62,9 +64,9 @@ export function AppSidebar({ user }: AppSidebarProps) {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarContent>
+      <SidebarContent className="bg-white">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 py-4">
+          <SidebarGroupLabel className="px-3 py-6">
             {!collapsed ? (
               <div className="flex items-center gap-2">
                 <Cloud className="h-6 w-6 text-primary" />
@@ -91,9 +93,9 @@ export function AppSidebar({ user }: AppSidebarProps) {
                       <Link
                         href={item.url}
                         className={cn(
-                          "flex items-center",
+                          "flex items-center my-0.5",
                           isActive &&
-                            "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
+                            "bg-sidebar-accent font-semibold text-primary",
                         )}
                       >
                         <item.icon className="h-4 w-4 mr-2" />
@@ -112,16 +114,29 @@ export function AppSidebar({ user }: AppSidebarProps) {
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild tooltip={item.title}>
-                      <Link href={item.url} className="flex items-center">
-                        <item.icon className="h-4 w-4 mr-2" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {adminItems.map((item) => {
+                  const isActive =
+                    item.url === "/dashboard"
+                      ? pathname === item.url
+                      : pathname.startsWith(item.url);
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild tooltip={item.title}>
+                        <Link
+                          href={item.url}
+                          className={cn(
+                            "flex items-center",
+                            isActive &&
+                              "bg-sidebar-accent font-semibold text-primary",
+                          )}
+                        >
+                          <item.icon className="h-4 w-4 mr-2" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -129,9 +144,9 @@ export function AppSidebar({ user }: AppSidebarProps) {
       </SidebarContent>
 
       {!collapsed && (
-        <SidebarFooter className="p-4 border-t border-sidebar-border">
+        <SidebarFooter className="p-4 border-t border-sidebar-border bg-white">
           <div className="space-y-2">
-            <div className="flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+            <div className="flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
               <span>Storage</span>
               <span>{Math.round(storagePercent)}%</span>
             </div>

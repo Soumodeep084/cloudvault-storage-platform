@@ -13,8 +13,9 @@ export function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-export function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
+export function formatDate(date: string | Date) {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
