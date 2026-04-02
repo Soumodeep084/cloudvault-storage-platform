@@ -18,7 +18,7 @@ const Navbar = () => {
             </Button>
           ) : (
             <>
-              <Button variant="secondary" asChild>
+              <Button variant="subtle" asChild>
                 <Link href="/login">Log in</Link>
               </Button>
               <Button asChild>

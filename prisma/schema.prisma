@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TokenType {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+model User {
+  id         String  @id @default(uuid())
+  email      String  @unique
+  password   String
+  name       String?
+  role       Role    @default(USER)
+  isVerified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  files    File[]
+  shares   Share[]
+  tokens   Token[]
+  sessions Session[]
+  logs     ActivityLog[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  // Added onDelete: Cascade
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Token {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  type      TokenType
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  // Added onDelete: Cascade
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model File {
+  id        String  @id @default(uuid())
+  userId    String
+  fileName  String
+  fileUrl   String
+  fileSize  Int?
+  fileType  String?
+  isDeleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Added onDelete: Cascade
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions FileVersion[]
+  shares   Share[]
+
+  @@index([userId])
+}
+
+model FileVersion {
+  id        String   @id @default(uuid())
+  fileId    String
+  version   Int
+  fileUrl   String
+  createdAt DateTime @default(now())
+
+  // Added onDelete: Cascade so deleting a file removes versions
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([fileId])
+}
+
+model Share {
+  id        String    @id @default(uuid())
+  fileId    String
+  userId    String
+  shareLink String    @unique
+  password  String?
+  isPublic  Boolean   @default(false)
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Added onDelete: Cascade for both relations
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([fileId])
+  @@index([userId])
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  // Added onDelete: Cascade
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SystemStat {
+  id               String @id @default(uuid())
+  totalUsers       Int    @default(0)
+  totalFiles       Int    @default(0)
+  totalStorageUsed Float  @default(0)
+
+  updatedAt DateTime @updatedAt
+}
