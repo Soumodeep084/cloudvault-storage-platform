@@ -9,17 +9,37 @@ export interface User {
     joinedAt: string;
 }
 
+export type FileCategory =
+    | 'pdf'
+    | 'image'
+    | 'video'
+    | 'document'
+    | 'spreadsheet'
+    | 'archive'
+    | 'other';
+
 export interface FileItem {
     id: string;
-    name: string;
-    type: 'pdf' | 'image' | 'video' | 'document' | 'spreadsheet' | 'archive' | 'other';
-    size: number;
-    uploadedAt: string;
-    modifiedAt: string;
-    shared: boolean;
+        // UI-oriented shape
+        name?: string;
+        type?: FileCategory;
+        size?: number | null;
+        uploadedAt?: string | Date;
+        modifiedAt?: string | Date;
+        shared?: boolean;
     shareLink?: string;
-    versions: FileVersion[];
-    ownerId: string;
+        versions?: FileVersion[];
+
+        // DB-oriented shape (Prisma File model)
+        userId?: string;
+        ownerId?: string;
+        fileName?: string;
+        fileUrl?: string;
+        fileSize?: number | null;
+        fileType?: string | null;
+        isDeleted?: boolean;
+        createdAt?: string | Date;
+        updatedAt?: string | Date;
 }
 
 export interface FileVersion {

@@ -59,7 +59,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
 
   // Handle default storage values if not in DB yet
   const used = user?.storageUsed || 0;
-  const limit = user?.storageLimit || 15 * 1024 * 1024 * 1024; // Default 15GB
+  const limit = user?.storageLimit || 50 * 1024 * 1024; // Default 50MB
   const storagePercent = (used / limit) * 100;
 
   return (

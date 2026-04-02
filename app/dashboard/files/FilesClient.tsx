@@ -22,11 +22,55 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { FileItem } from "@/types";
+import { FileCategory, FileItem } from "@/types";
+
+function normalizeFileType(file: FileItem): FileCategory {
+  const rawType = (file.type || file.fileType || "").toLowerCase();
+  const fileName = (file.name || file.fileName || "").toLowerCase();
+
+  if (rawType.includes("pdf") || fileName.endsWith(".pdf")) return "pdf";
+  if (rawType.includes("image") || /(png|jpg|jpeg|gif|webp|svg)$/i.test(fileName)) return "image";
+  if (rawType.includes("video") || /(mp4|mov|mkv|avi|webm)$/i.test(fileName)) return "video";
+  if (rawType.includes("sheet") || rawType.includes("excel") || /(xls|xlsx|csv)$/i.test(fileName)) return "spreadsheet";
+  if (rawType.includes("archive") || /(zip|rar|7z|tar|gz)$/i.test(fileName)) return "archive";
+  if (rawType.includes("doc") || /(doc|docx|txt|md)$/i.test(fileName)) return "document";
+  return "other";
+}
+
+function getDisplayName(file: FileItem) {
+  return file.name || file.fileName || "Untitled file";
+}
+
+function getDisplaySize(file: FileItem) {
+  return file.size ?? file.fileSize ?? 0;
+}
+
+function getDisplayDate(file: FileItem) {
+  return file.modifiedAt || file.updatedAt || file.uploadedAt || file.createdAt || new Date();
+}
+
+function isShared(file: FileItem) {
+  return Boolean(file.shared ?? file.shareLink);
+}
 
 export default function FilesClient({ initialFiles }: { initialFiles: FileItem[] }) {
   const [files, setFiles] = useState(initialFiles);
   const [shareFile, setShareFile] = useState<FileItem | null>(null);
+
+  const handleDownload = (file: FileItem) => {
+    if (!file.id) {
+      toast.error("File id not found");
+      return;
+    }
+
+    const anchor = document.createElement("a");
+    anchor.href = `/api/files/${file.id}/download`;
+    anchor.rel = "noopener noreferrer";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    toast.success("Download started");
+  };
 
   const handleDelete = async (id: string) => {
     // In industry level, you'd call a Server Action here: await deleteFileAction(id)
@@ -34,7 +78,7 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
     toast.success("File deleted");
   };
 
-  const totalSize = files.reduce((a, f) => a + (f.size || 0), 0);
+  const totalSize = files.reduce((a, f) => a + getDisplaySize(f), 0);
 
   return (
     <div className="space-y-6">
@@ -76,26 +120,27 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
             </TableHeader>
             <TableBody>
               {files.map((file) => (
+                
                 <TableRow
                   key={file.id}
                   className="group hover:bg-muted/30 transition-colors "
                 >
                   <TableCell>
                     <div className="flex items-center gap-3 px-2">
-                      <FileIcon type={file.type} />
+                      <FileIcon type={normalizeFileType(file)} />
                       <span className="font-medium truncate max-w-50">
-                        {file.name}
+                        {getDisplayName(file)}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">
-                    {formatFileSize(file.size)}
+                    {formatFileSize(getDisplaySize(file))}
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-muted-foreground">
-                    {formatDate(file.uploadedAt)}
+                    {formatDate(getDisplayDate(file))}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {file.shared ? (
+                    {isShared(file) ? (
                       <Badge variant="secondary">Shared</Badge>
                     ) : (
                       <Badge variant="outline">Private</Badge>
@@ -110,7 +155,7 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-40">
                         <DropdownMenuItem
-                          onClick={() => toast.success("Download started")}
+                          onClick={() => handleDownload(file)}
                         >
                           <Download className="mr-2 h-4 w-4"/> Download
                         </DropdownMenuItem>
@@ -136,7 +181,7 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
       <ShareModal
         open={!!shareFile}
         onOpenChange={() => setShareFile(null)}
-        fileName={shareFile?.name || ""}
+        fileName={shareFile ? getDisplayName(shareFile) : ""}
         shareLink={shareFile?.shareLink}
       />
     </div>

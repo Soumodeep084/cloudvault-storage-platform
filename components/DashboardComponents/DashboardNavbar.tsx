@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { logoutAction } from "@/app/actions/userActions"; // Import logout
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface NavbarProps {
   user: {
@@ -97,17 +98,16 @@ export function DashboardNavbar({ user }: NavbarProps) {
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
-              <UserIcon className="mr-2 h-4 w-4" /> Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" /> Settings
+              <Link href="/dashboard/settings" className="flex items-center gap-2">
+                <Settings className="h-4 w-4" /> Settings
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleSignOut}
               className="text-destructive focus:bg-destructive/10 focus:text-destructive"
             >
-              <LogOut className="mr-2 h-4 w-4" /> Sign out
+              <LogOut className="mr-2 h-4 w-4" /> Sign out / Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

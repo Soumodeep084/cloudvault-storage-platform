@@ -6,7 +6,7 @@ import {
   Archive,
   File,
 } from "lucide-react";
-import { FileItem } from "@/types/index";
+import { FileCategory, FileItem } from "@/types/index";
 
 const iconMap = {
   pdf: FileText,
@@ -46,9 +46,10 @@ export function FileIcon({
   type: FileItem["type"];
   className?: string;
 }) {
-  const Icon = iconMap[type] || File;
-  const color = colorMap[type] || "";
-  const bgColor = bgMap[type] || "bg-muted/10";
+  const resolvedType: FileCategory = type ?? "other";
+  const Icon = iconMap[resolvedType] || File;
+  const color = colorMap[resolvedType] || "";
+  const bgColor = bgMap[resolvedType] || "bg-muted/10";
 
   return (
     <div
