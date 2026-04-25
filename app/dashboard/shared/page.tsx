@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink, Copy } from "lucide-react";
 import { mockFiles } from "@/lib/mock-data";
 import { CopyButton } from "@/components/DashboardComponents/CopyButton";
+import { ShareButton } from "@/components/DashboardComponents/ShareButton";
 
 export default async function SharedPage() {
   const user = await getSessionUser();
@@ -124,8 +125,8 @@ export default async function SharedPage() {
                   {file.name}
                 </p>
                 <p className="text-[11px] text-slate-400 font-medium">
-                  {formatFileSize(file.size)} · Shared on{" "}
-                  {formatDate(file.uploadedAt)}
+                  {typeof file.size === "number" ? formatFileSize(file.size) : "Unknown size"} · Shared on{" "}
+                  {file.uploadedAt ? formatDate(file.uploadedAt) : "Unknown date"}
                 </p>
               </div>
 
@@ -134,9 +135,13 @@ export default async function SharedPage() {
               </Badge>
 
               <div className="flex items-center gap-1">
+                <ShareButton
+                  fileName={file.name ?? "Untitled file"}
+                  shareLink={file.shareLink}
+                />
                 <CopyButton shareLink={file.shareLink} />
 
-                {file.shareLink && (
+                {/* {file.shareLink && (
                   <a
                     href={file.shareLink}
                     target="_blank"
@@ -150,7 +155,7 @@ export default async function SharedPage() {
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                   </a>
-                )}
+                )} */}
               </div>
             </div>
           ))}

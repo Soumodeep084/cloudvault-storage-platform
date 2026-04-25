@@ -23,6 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { FileCategory, FileItem } from "@/types";
+import { deleteFileAction } from "@/app/actions/fileActions";
 
 function normalizeFileType(file: FileItem): FileCategory {
   const rawType = (file.type || file.fileType || "").toLowerCase();
@@ -73,8 +74,16 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
   };
 
   const handleDelete = async (id: string) => {
-    // In industry level, you'd call a Server Action here: await deleteFileAction(id)
+    const previousFiles = files;
     setFiles((prev) => prev.filter((f) => f.id !== id));
+
+    const result = await deleteFileAction(id);
+    if (!result.success) {
+      setFiles(previousFiles);
+      toast.error(result.error || "Failed to delete file");
+      return;
+    }
+
     toast.success("File deleted");
   };
 
@@ -160,7 +169,8 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
                           <Download className="mr-2 h-4 w-4"/> Download
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setShareFile(file)}>
-                          <Share2 className="mr-2 h-4 w-4" /> Share
+                          <Share2 className="mr-2 h-4 w-4" />
+                          {file.shareLink ? "Share" : "Create share link"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDelete(file.id)}

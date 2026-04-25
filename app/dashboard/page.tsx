@@ -9,6 +9,32 @@ import { getSessionUser } from "@/lib/auth-help";
 import { db } from "@/lib/prisma";
 import { FileCategory } from "@/types";
 
+function isMissingShareTableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  const maybeError = error as {
+    code?: string;
+    meta?: { modelName?: string };
+    message?: string;
+  };
+
+  return (
+    maybeError.code === "P2021" &&
+    (maybeError.meta?.modelName === "Share" ||
+      maybeError.message?.includes("public.Share") === true)
+  );
+}
+
+async function getSharedCountSafe(userId: string): Promise<number> {
+  try {
+    return await db.share.count({ where: { userId } });
+  } catch (error) {
+    // In environments where migrations were not applied yet, avoid hard-crashing the dashboard.
+    if (isMissingShareTableError(error)) return 0;
+    throw error;
+  }
+}
+
 function toFileCategory(fileType: string | null, fileName: string): FileCategory {
   const rawType = (fileType || "").toLowerCase();
   const lowerName = fileName.toLowerCase();
@@ -32,7 +58,7 @@ export default async function DashboardHome() {
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
-    db.share.count({ where: { userId: user.id } }),
+    getSharedCountSafe(user.id),
     db.file.count({
       where: {
         userId: user.id,
