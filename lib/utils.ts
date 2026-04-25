@@ -21,3 +21,15 @@ export function formatDate(date: string | Date) {
     year: 'numeric',
   });
 }
+
+export function formatDateTime(date: string | Date) {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}

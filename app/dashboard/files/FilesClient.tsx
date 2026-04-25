@@ -23,7 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { FileCategory, FileItem } from "@/types";
-import { deleteFileAction } from "@/app/actions/fileActions";
+import { createShareLink, deleteFileAction } from "@/app/actions/fileActions";
 
 function normalizeFileType(file: FileItem): FileCategory {
   const rawType = (file.type || file.fileType || "").toLowerCase();
@@ -85,6 +85,24 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
     }
 
     toast.success("File deleted");
+  };
+
+  const handleShare = async (file: FileItem) => {
+    if (file.shareLink) {
+      setShareFile(file);
+      return;
+    }
+
+    const result = await createShareLink(file.id);
+    if (!result.success) {
+      toast.error(result.error || "Failed to create share link");
+      return;
+    }
+
+    const updatedFile = { ...file, shareLink: result.shareLink, shared: true };
+    setFiles((prev) => prev.map((f) => (f.id === file.id ? updatedFile : f)));
+    setShareFile(updatedFile);
+    toast.success("Share link created");
   };
 
   const totalSize = files.reduce((a, f) => a + getDisplaySize(f), 0);
@@ -168,7 +186,7 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
                         >
                           <Download className="mr-2 h-4 w-4"/> Download
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setShareFile(file)}>
+                        <DropdownMenuItem onClick={() => handleShare(file)}>
                           <Share2 className="mr-2 h-4 w-4" />
                           {file.shareLink ? "Share" : "Create share link"}
                         </DropdownMenuItem>

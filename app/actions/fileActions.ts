@@ -4,6 +4,7 @@ import { db } from "@/lib/prisma";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSessionUser } from "@/lib/auth-help";
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
 
 function extractStoragePath(fileUrl: string): string | null {
     const markers = [
@@ -20,6 +21,16 @@ function extractStoragePath(fileUrl: string): string | null {
     }
 
     return null;
+}
+
+async function logActivity(userId: string, action: string, metadata?: Prisma.InputJsonValue) {
+    await db.activityLog.create({
+        data: {
+            userId,
+            action,
+            metadata,
+        },
+    });
 }
 
 // Explicitly define the interface to fix the 'userId' error
@@ -39,9 +50,11 @@ export async function recordFileUpload(data: {
             });
 
             let fileId: string;
+            let activityAction = "FILE_ADDED";
 
             if (existingFile) {
                 fileId = existingFile.id;
+                activityAction = "FILE_UPDATED";
                 const nextVersion = (existingFile.versions[0]?.version || 1) + 1;
 
                 await tx.fileVersion.create({
@@ -70,6 +83,18 @@ export async function recordFileUpload(data: {
             await tx.user.update({
                 where: { id: data.userId },
                 data: { storageUsed: { increment: data.fileSize } }
+            });
+
+            await tx.activityLog.create({
+                data: {
+                    userId: data.userId,
+                    action: activityAction,
+                    metadata: {
+                        fileId,
+                        fileName: data.fileName,
+                        fileSize: data.fileSize,
+                    },
+                },
             });
 
             return { success: true, fileId };
@@ -116,7 +141,14 @@ export async function createShareLink(fileId: string) {
             },
         });
 
+        await logActivity(user.id, "FILE_SHARED", {
+            fileId: file.id,
+            fileName: file.fileName,
+            shareLink,
+        });
+
         revalidatePath("/dashboard/shared");
+        revalidatePath("/dashboard/history");
 
         return { success: true, shareLink };
     } catch (error) {
@@ -134,7 +166,7 @@ export async function deleteFileAction(fileId: string) {
 
         const file = await db.file.findFirst({
             where: { id: fileId, userId: user.id, isDeleted: false },
-            select: { id: true, fileUrl: true, fileSize: true },
+            select: { id: true, fileUrl: true, fileSize: true, fileName: true },
         });
 
         if (!file) {
@@ -167,10 +199,22 @@ export async function deleteFileAction(fileId: string) {
                     data: { storageUsed: { decrement: BigInt(file.fileSize) } },
                 });
             }
+
+            await tx.activityLog.create({
+                data: {
+                    userId: user.id,
+                    action: "FILE_DELETED",
+                    metadata: {
+                        fileId: file.id,
+                        fileName: file.fileName,
+                    },
+                },
+            });
         });
 
         revalidatePath("/dashboard");
         revalidatePath("/dashboard/files");
+        revalidatePath("/dashboard/history");
 
         return { success: true };
     } catch (error) {

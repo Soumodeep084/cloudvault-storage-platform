@@ -43,7 +43,7 @@ const mainItems = [
   { title: "My Files", url: "/dashboard/files", icon: Files },
   { title: "Upload", url: "/dashboard/upload", icon: Upload },
   { title: "Shared Files", url: "/dashboard/shared", icon: Share2 },
-  { title: "Version History", url: "/dashboard/history", icon: History },
+  { title: "Activity Feed", url: "/dashboard/history", icon: History },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
 
