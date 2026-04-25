@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Trash2, Share2, MoreHorizontal } from "lucide-react";
+import { Download, Trash2, Share2, MoreHorizontal, AlertTriangle } from "lucide-react";
 import { formatFileSize, formatDate } from "@/lib/utils";
 import { FileIcon } from "@/components/DashboardComponents/FileIcon"; // Ensure this exists
 import { ShareModal } from "@/components/DashboardComponents/ShareModal";
@@ -24,6 +24,23 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { FileCategory, FileItem } from "@/types";
 import { createShareLink, deleteFileAction } from "@/app/actions/fileActions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+
+function generateDeleteCode(length = 8) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < length; i += 1) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
 
 function normalizeFileType(file: FileItem): FileCategory {
   const rawType = (file.type || file.fileType || "").toLowerCase();
@@ -57,6 +74,11 @@ function isShared(file: FileItem) {
 export default function FilesClient({ initialFiles }: { initialFiles: FileItem[] }) {
   const [files, setFiles] = useState(initialFiles);
   const [shareFile, setShareFile] = useState<FileItem | null>(null);
+  const [deleteFile, setDeleteFile] = useState<FileItem | null>(null);
+  const [deleteStep, setDeleteStep] = useState<"confirm" | "verify">("confirm");
+  const [deleteCode, setDeleteCode] = useState("");
+  const [deleteInput, setDeleteInput] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDownload = (file: FileItem) => {
     if (!file.id) {
@@ -73,17 +95,49 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
     toast.success("Download started");
   };
 
-  const handleDelete = async (id: string) => {
-    const previousFiles = files;
-    setFiles((prev) => prev.filter((f) => f.id !== id));
+  const resetDeleteDialog = () => {
+    if (isDeleting) return;
+    setDeleteFile(null);
+    setDeleteStep("confirm");
+    setDeleteCode("");
+    setDeleteInput("");
+  };
 
-    const result = await deleteFileAction(id);
+  const openDeleteDialog = (file: FileItem) => {
+    setDeleteFile(file);
+    setDeleteStep("confirm");
+    setDeleteCode("");
+    setDeleteInput("");
+  };
+
+  const startDeleteVerification = () => {
+    setDeleteStep("verify");
+    setDeleteCode(generateDeleteCode());
+    setDeleteInput("");
+  };
+
+  const handleDelete = async () => {
+    if (!deleteFile?.id) {
+      toast.error("File id not found");
+      return;
+    }
+
+    if (deleteInput.trim().toUpperCase() !== deleteCode) {
+      toast.error("Confirmation code does not match");
+      return;
+    }
+
+    setIsDeleting(true);
+    const result = await deleteFileAction(deleteFile.id);
+    setIsDeleting(false);
+
     if (!result.success) {
-      setFiles(previousFiles);
       toast.error(result.error || "Failed to delete file");
       return;
     }
 
+    setFiles((prev) => prev.filter((f) => f.id !== deleteFile.id));
+    resetDeleteDialog();
     toast.success("File deleted");
   };
 
@@ -191,7 +245,7 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
                           {file.shareLink ? "Share" : "Create share link"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => handleDelete(file.id)}
+                          onClick={() => openDeleteDialog(file)}
                           className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -212,6 +266,79 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
         fileName={shareFile ? getDisplayName(shareFile) : ""}
         shareLink={shareFile?.shareLink}
       />
+
+      <Dialog open={!!deleteFile} onOpenChange={(open) => (!open ? resetDeleteDialog() : undefined)}>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden" showCloseButton={!isDeleting}>
+          <div className="border-b bg-linear-to-b from-rose-50 to-white px-6 py-5">
+            <DialogHeader className="gap-3">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-full bg-rose-100 p-2 text-rose-700">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <DialogTitle className="text-base font-semibold text-slate-900">
+                    Delete file permanently?
+                  </DialogTitle>
+                  <DialogDescription className="text-sm leading-relaxed text-slate-600">
+                    {deleteStep === "confirm"
+                      ? "This action is permanent and cannot be undone."
+                      : "Confirm by typing the generated security code."}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+
+          <div className="px-6 py-5 space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3.5">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Selected file</p>
+              <p className="mt-1 text-sm font-medium text-slate-900 break-all">
+                {deleteFile ? getDisplayName(deleteFile) : ""}
+              </p>
+            </div>
+
+            {deleteStep === "verify" && (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-600">
+                  Enter <span className="font-semibold text-rose-600">&quot;{deleteCode}&quot;</span> to permanently delete this file.
+                </p>
+
+                <Input
+                  value={deleteInput}
+                  onChange={(e) => setDeleteInput(e.target.value.toUpperCase())}
+                  placeholder="Type the confirmation code"
+                  autoComplete="off"
+                  disabled={isDeleting}
+                  className="h-10"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t bg-slate-50 px-6 py-4">
+            <Button variant="outline" onClick={resetDeleteDialog} disabled={isDeleting} className="h-9">
+              Cancel
+            </Button>
+
+            {deleteStep === "confirm" ? (
+              <Button
+                onClick={startDeleteVerification}
+                className="h-9 bg-slate-900 text-white hover:bg-slate-800"
+              >
+                Yes, continue
+              </Button>
+            ) : (
+              <Button
+                onClick={handleDelete}
+                disabled={isDeleting || deleteInput.trim().toUpperCase() !== deleteCode}
+                className="h-9 bg-rose-600 text-white hover:bg-rose-700 disabled:bg-rose-300"
+              >
+                {isDeleting ? "Deleting..." : "Permanently delete"}
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
