@@ -83,25 +83,11 @@ model File {
   updatedAt DateTime @updatedAt
 
   // Added onDelete: Cascade
-  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  versions FileVersion[]
-  shares   Share[]
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shares     Share[]
   activities Activity[]
 
   @@index([userId])
-}
-
-model FileVersion {
-  id        String   @id @default(uuid())
-  fileId    String
-  version   Int
-  fileUrl   String
-  createdAt DateTime @default(now())
-
-  // Added onDelete: Cascade so deleting a file removes versions
-  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
-
-  @@index([fileId])
 }
 
 model Share {
@@ -139,18 +125,6 @@ model Activity {
   @@index([createdAt])
 }
 
-// model ActivityLog {
-//   id        String   @id @default(uuid())
-//   userId    String
-//   action    String
-//   metadata  Json?
-//   createdAt DateTime @default(now())
-
-//   // Deprecated: use Activity instead of ActivityLog.
-//   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-//   @@index([userId])
-// }
 
 model SystemStat {
   id               String @id @default(uuid())

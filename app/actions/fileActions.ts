@@ -24,6 +24,40 @@ async function logActivity(
     });
 }
 
+function splitFileName(fileName: string) {
+    const lastDotIndex = fileName.lastIndexOf(".");
+    if (lastDotIndex <= 0) {
+        return { baseName: fileName, extension: "" };
+    }
+
+    return {
+        baseName: fileName.slice(0, lastDotIndex),
+        extension: fileName.slice(lastDotIndex),
+    };
+}
+
+function stripNumberSuffix(baseName: string) {
+    return baseName.replace(/\s\(\d+\)$/, "");
+}
+
+export function getUniqueFileName(originalName: string, existingNames: string[]) {
+    const { baseName, extension } = splitFileName(originalName);
+    const normalizedBase = stripNumberSuffix(baseName);
+    const existingSet = new Set(existingNames);
+
+    const baseCandidate = `${normalizedBase}${extension}`;
+    if (!existingSet.has(baseCandidate)) {
+        return baseCandidate;
+    }
+
+    let counter = 1;
+    while (existingSet.has(`${normalizedBase} (${counter})${extension}`)) {
+        counter += 1;
+    }
+
+    return `${normalizedBase} (${counter})${extension}`;
+}
+
 // Explicitly define the interface to fix the 'userId' error
 export async function recordFileUpload(data: {
     userId: string;
@@ -34,38 +68,27 @@ export async function recordFileUpload(data: {
 }) {
     try {
         const result = await db.$transaction(async (tx) => {
-            // 1. Check for existing file for versioning
-            const existingFile = await tx.file.findFirst({
-                where: { userId: data.userId, fileName: data.fileName, isDeleted: false },
-                include: { versions: { orderBy: { version: 'desc' }, take: 1 } }
+            const existingNames = await tx.file.findMany({
+                where: { userId: data.userId, isDeleted: false },
+                select: { fileName: true },
             });
 
-            let fileId: string;
-            if (existingFile) {
-                fileId = existingFile.id;
-                const nextVersion = (existingFile.versions[0]?.version || 1) + 1;
+            const uniqueName = getUniqueFileName(
+                data.fileName,
+                existingNames.map((item) => item.fileName),
+            );
 
-                await tx.fileVersion.create({
-                    data: { fileId, version: nextVersion, fileUrl: data.fileUrl }
-                });
+            const newFile = await tx.file.create({
+                data: {
+                    userId: data.userId,
+                    fileName: uniqueName,
+                    fileUrl: data.fileUrl,
+                    fileSize: data.fileSize,
+                    fileType: data.fileType,
+                },
+            });
 
-                await tx.file.update({
-                    where: { id: fileId },
-                    data: { fileUrl: data.fileUrl, fileSize: data.fileSize }
-                });
-            } else {
-                const newFile = await tx.file.create({
-                    data: {
-                        userId: data.userId,
-                        fileName: data.fileName,
-                        fileUrl: data.fileUrl,
-                        fileSize: data.fileSize,
-                        fileType: data.fileType,
-                        versions: { create: { version: 1, fileUrl: data.fileUrl } }
-                    }
-                });
-                fileId = newFile.id;
-            }
+            const fileId = newFile.id;
 
             // 2. Increment user storage
             await tx.user.update({
@@ -80,7 +103,7 @@ export async function recordFileUpload(data: {
                     fileId,
                     metadata: {
                         fileId,
-                        fileName: data.fileName,
+                        fileName: uniqueName,
                         fileSize: data.fileSize,
                     },
                 },

@@ -29,7 +29,6 @@ export interface FileItem {
         shared?: boolean;
     shareLink?: string;
         shareExpiresAt?: string | Date | null;
-        versions?: FileVersion[];
 
         // DB-oriented shape (Prisma File model)
         userId?: string;
@@ -41,15 +40,6 @@ export interface FileItem {
         isDeleted?: boolean;
         createdAt?: string | Date;
         updatedAt?: string | Date;
-}
-
-export interface FileVersion {
-    id: string;
-    version: number;
-    size: number;
-    createdAt: string;
-    createdBy: string;
-    changes: string;
 }
 
 export interface AdminStats {
