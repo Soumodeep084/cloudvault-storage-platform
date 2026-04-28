@@ -4,15 +4,21 @@ import { db } from "@/lib/prisma";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSessionUser } from "@/lib/auth-help";
 import { revalidatePath } from "next/cache";
-import type { Prisma } from "@prisma/client";
+import { ActivityAction, type Prisma } from "@prisma/client";
 import { extractStoragePathFromUrl } from "@/lib/storage-path";
 import bcrypt from "bcryptjs";
 
-async function logActivity(userId: string, action: string, metadata?: Prisma.InputJsonValue) {
-    await db.activityLog.create({
+async function logActivity(
+    userId: string,
+    action: ActivityAction,
+    fileId?: string | null,
+    metadata?: Prisma.InputJsonValue,
+) {
+    await db.activity.create({
         data: {
             userId,
             action,
+            fileId: fileId ?? null,
             metadata,
         },
     });
@@ -35,11 +41,8 @@ export async function recordFileUpload(data: {
             });
 
             let fileId: string;
-            let activityAction = "FILE_ADDED";
-
             if (existingFile) {
                 fileId = existingFile.id;
-                activityAction = "FILE_UPDATED";
                 const nextVersion = (existingFile.versions[0]?.version || 1) + 1;
 
                 await tx.fileVersion.create({
@@ -70,10 +73,11 @@ export async function recordFileUpload(data: {
                 data: { storageUsed: { increment: data.fileSize } }
             });
 
-            await tx.activityLog.create({
+            await tx.activity.create({
                 data: {
                     userId: data.userId,
-                    action: activityAction,
+                    action: ActivityAction.UPLOAD,
+                    fileId,
                     metadata: {
                         fileId,
                         fileName: data.fileName,
@@ -146,6 +150,14 @@ export async function createShareLink(
                 },
             });
 
+            await logActivity(user.id, ActivityAction.SHARE, file.id, {
+                fileId: file.id,
+                fileName: file.fileName,
+                shareLink: existingShare.shareLink,
+                hasPassword: true,
+                expiresAt: expiresAt?.toISOString() ?? null,
+            });
+
             return { success: true, shareLink: existingShare.shareLink };
         }
 
@@ -163,7 +175,7 @@ export async function createShareLink(
             },
         });
 
-        await logActivity(user.id, "FILE_SHARED", {
+        await logActivity(user.id, ActivityAction.SHARE, file.id, {
             fileId: file.id,
             fileName: file.fileName,
             shareLink,
@@ -215,6 +227,18 @@ export async function deleteFileAction(fileId: string) {
         }
 
         await db.$transaction(async (tx) => {
+            await tx.activity.create({
+                data: {
+                    userId: user.id,
+                    action: ActivityAction.DELETE,
+                    fileId: file.id,
+                    metadata: {
+                        fileId: file.id,
+                        fileName: file.fileName,
+                    },
+                },
+            });
+
             await tx.file.delete({ where: { id: file.id } });
 
             if (file.fileSize) {
@@ -223,17 +247,6 @@ export async function deleteFileAction(fileId: string) {
                     data: { storageUsed: { decrement: BigInt(file.fileSize) } },
                 });
             }
-
-            await tx.activityLog.create({
-                data: {
-                    userId: user.id,
-                    action: "FILE_DELETED",
-                    metadata: {
-                        fileId: file.id,
-                        fileName: file.fileName,
-                    },
-                },
-            });
         });
 
         revalidatePath("/dashboard");
@@ -285,11 +298,6 @@ export async function revokeShareLink(fileId: string) {
         }
 
         await db.share.delete({ where: { id: existingShare.id } });
-
-        await logActivity(user.id, "FILE_UNSHARED", {
-            fileId: file.id,
-            fileName: file.fileName,
-        });
 
         revalidatePath("/dashboard/files");
         revalidatePath("/dashboard/shared");

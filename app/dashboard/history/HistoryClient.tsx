@@ -5,11 +5,8 @@ import {
   Upload,
   Trash2,
   Share2,
-  RefreshCcw,
   Activity,
   Download,
-  Eye,
-  Link2Off,
   Search,
   Filter,
 } from "lucide-react";
@@ -31,49 +28,28 @@ type ActivityEntry = {
 
 function getActivityView(action: string) {
   switch (action) {
-    case "FILE_ADDED":
+    case "UPLOAD":
       return {
         label: "Added a new file",
         icon: Upload,
         badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
         iconWrapClass: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200",
       };
-    case "FILE_UPDATED":
-      return {
-        label: "Updated an existing file",
-        icon: RefreshCcw,
-        badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
-        iconWrapClass: "bg-blue-100 text-blue-700 ring-1 ring-blue-200",
-      };
-    case "FILE_DELETED":
+    case "DELETE":
       return {
         label: "Deleted a file",
         icon: Trash2,
         badgeClass: "bg-rose-50 text-rose-700 border-rose-200",
         iconWrapClass: "bg-rose-100 text-rose-700 ring-1 ring-rose-200",
       };
-    case "FILE_SHARED":
+    case "SHARE":
       return {
         label: "Shared a file",
         icon: Share2,
         badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
         iconWrapClass: "bg-amber-100 text-amber-700 ring-1 ring-amber-200",
       };
-    case "FILE_UNSHARED":
-      return {
-        label: "Stopped sharing a file",
-        icon: Link2Off,
-        badgeClass: "bg-orange-50 text-orange-700 border-orange-200",
-        iconWrapClass: "bg-orange-100 text-orange-700 ring-1 ring-orange-200",
-      };
-    case "SHARE_VIEWED":
-      return {
-        label: "Shared file viewed",
-        icon: Eye,
-        badgeClass: "bg-cyan-50 text-cyan-700 border-cyan-200",
-        iconWrapClass: "bg-cyan-100 text-cyan-700 ring-1 ring-cyan-200",
-      };
-    case "SHARE_DOWNLOADED":
+    case "DOWNLOAD":
       return {
         label: "Shared file downloaded",
         icon: Download,
@@ -93,41 +69,21 @@ function getActivityView(action: string) {
 const actionFilters = [
   { value: "all", label: "All activity" },
   { value: "share", label: "Shared" },
-  { value: "unshare", label: "Stopped" },
-  { value: "view", label: "Viewed" },
   { value: "download", label: "Downloaded" },
   { value: "upload", label: "Uploads" },
-  { value: "update", label: "Updates" },
   { value: "delete", label: "Deletes" },
-  { value: "other", label: "Other" },
 ];
 
 function matchesActionFilter(action: string, filter: string) {
   switch (filter) {
     case "share":
-      return action === "FILE_SHARED";
-    case "unshare":
-      return action === "FILE_UNSHARED";
-    case "view":
-      return action === "SHARE_VIEWED";
+      return action === "SHARE";
     case "download":
-      return action === "SHARE_DOWNLOADED";
+      return action === "DOWNLOAD";
     case "upload":
-      return action === "FILE_ADDED";
-    case "update":
-      return action === "FILE_UPDATED";
+      return action === "UPLOAD";
     case "delete":
-      return action === "FILE_DELETED";
-    case "other":
-      return ![
-        "FILE_SHARED",
-        "FILE_UNSHARED",
-        "SHARE_VIEWED",
-        "SHARE_DOWNLOADED",
-        "FILE_ADDED",
-        "FILE_UPDATED",
-        "FILE_DELETED",
-      ].includes(action);
+      return action === "DELETE";
     default:
       return true;
   }

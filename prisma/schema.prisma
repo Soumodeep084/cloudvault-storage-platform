@@ -16,6 +16,13 @@ enum TokenType {
   RESET_PASSWORD
 }
 
+enum ActivityAction {
+  UPLOAD
+  SHARE
+  DOWNLOAD
+  DELETE
+}
+
 model User {
   id         String  @id @default(uuid())
   email      String  @unique
@@ -33,7 +40,7 @@ model User {
   shares   Share[]
   tokens   Token[]
   sessions Session[]
-  logs     ActivityLog[]
+  activities Activity[]
 }
 
 model Session {
@@ -79,6 +86,7 @@ model File {
   user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   versions FileVersion[]
   shares   Share[]
+  activities Activity[]
 
   @@index([userId])
 }
@@ -115,18 +123,34 @@ model Share {
   @@index([userId])
 }
 
-model ActivityLog {
-  id        String   @id @default(uuid())
+model Activity {
+  id        String         @id @default(uuid())
   userId    String
-  action    String
+  fileId    String?
+  action    ActivityAction
   metadata  Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime       @default(now())
 
-  // Added onDelete: Cascade
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file File? @relation(fields: [fileId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([fileId])
+  @@index([createdAt])
 }
+
+// model ActivityLog {
+//   id        String   @id @default(uuid())
+//   userId    String
+//   action    String
+//   metadata  Json?
+//   createdAt DateTime @default(now())
+
+//   // Deprecated: use Activity instead of ActivityLog.
+//   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+//   @@index([userId])
+// }
 
 model SystemStat {
   id               String @id @default(uuid())

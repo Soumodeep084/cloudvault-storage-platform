@@ -151,25 +151,6 @@ export default async function PublicSharePage({
     );
   }
 
-  const requestHeaders = await headers();
-  const viewerIp = getClientIpFromHeaders(requestHeaders);
-  const viewerAgent = requestHeaders.get("user-agent");
-
-  await db.activityLog.create({
-    data: {
-      userId: share.userId,
-      action: "SHARE_VIEWED",
-      metadata: {
-        shareId: share.id,
-        fileId: share.file.id,
-        fileName: share.file.fileName,
-        shareToken: token,
-        viewerIp,
-        viewerAgent,
-      },
-    },
-  });
-
   return (
     <main className="min-h-screen bg-linear-to-b from-slate-50 via-white to-slate-100 px-4 py-8 sm:px-6 sm:py-14">
       <div className="mx-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">

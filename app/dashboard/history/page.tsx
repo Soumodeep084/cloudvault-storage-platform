@@ -9,7 +9,7 @@ export default async function HistoryPage() {
     redirect("/login");
   }
 
-  const activities = await db.activityLog.findMany({
+  const activities = await db.activity.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
     take: 200,

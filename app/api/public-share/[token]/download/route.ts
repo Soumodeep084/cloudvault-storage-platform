@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ActivityAction } from "@prisma/client";
 import { db } from "@/lib/prisma";
 import { supabaseAdmin } from "@/lib/supabase";
 import { extractStoragePathFromUrl } from "@/lib/storage-path";
@@ -72,10 +73,11 @@ export async function GET(
     return NextResponse.json({ message: "Unable to create download URL" }, { status: 500 });
   }
 
-  await db.activityLog.create({
+  await db.activity.create({
     data: {
       userId: share.userId,
-      action: "SHARE_DOWNLOADED",
+      action: ActivityAction.DOWNLOAD,
+      fileId: share.file.id,
       metadata: {
         shareId: share.id,
         fileId: share.file.id,
