@@ -56,7 +56,7 @@ export default async function DashboardHome() {
     db.file.findMany({
       where: { userId: user.id, isDeleted: false },
       orderBy: { createdAt: "desc" },
-      take: 5,
+      take: 6,
     }),
     getSharedCountSafe(user.id),
     db.file.count({
@@ -133,10 +133,10 @@ export default async function DashboardHome() {
       </div>
 
       <Card className="bg-white">
-        <CardHeader className="flex-row items-center justify-between">
+        <CardHeader className="flex items-center justify-between gap-3">
           <CardTitle>Recent Files</CardTitle>
-          <Button variant="subtle" size="sm" asChild>
-            <Link href="/dashboard/files">View all</Link>
+          <Button variant="subtle" size="sm" asChild className="shrink-0 whitespace-nowrap">
+            <Link href="/dashboard/files">View All</Link>
           </Button>
         </CardHeader>
         <CardContent>
