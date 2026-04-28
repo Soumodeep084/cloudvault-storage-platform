@@ -16,6 +16,7 @@ export default async function FilesPage() {
     ...file,
     shareLink: shares?.[0]?.shareLink,
     shared: Boolean(shares?.length),
+    shareExpiresAt: shares?.[0]?.expiresAt ?? null,
   }));
 
   return <FilesClient initialFiles={initialFiles} />;

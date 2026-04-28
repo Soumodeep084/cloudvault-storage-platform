@@ -5,23 +5,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { getSessionUser } from "@/lib/auth-help";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
-
-function extractStoragePath(fileUrl: string): string | null {
-    const markers = [
-        "/storage/v1/object/public/files/",
-        "/storage/v1/object/sign/files/",
-    ];
-
-    for (const marker of markers) {
-        const markerIndex = fileUrl.indexOf(marker);
-        if (markerIndex === -1) continue;
-
-        const rawPath = fileUrl.slice(markerIndex + marker.length).split("?")[0];
-        return decodeURIComponent(rawPath);
-    }
-
-    return null;
-}
+import { extractStoragePathFromUrl } from "@/lib/storage-path";
+import bcrypt from "bcryptjs";
 
 async function logActivity(userId: string, action: string, metadata?: Prisma.InputJsonValue) {
     await db.activityLog.create({
@@ -108,12 +93,38 @@ export async function recordFileUpload(data: {
     }
 }
 
-export async function createShareLink(fileId: string) {
+export async function createShareLink(
+    fileId: string,
+    options?: {
+        password?: string;
+        expiresInMinutes?: number | null;
+    },
+) {
     try {
         const user = await getSessionUser();
         if (!user) {
             return { success: false, error: "Not authenticated" };
         }
+
+        const normalizedPassword = options?.password?.trim();
+        if (!normalizedPassword || normalizedPassword.length < 6) {
+            return { success: false, error: "Password must be at least 6 characters" };
+        }
+
+        const expiresInMinutes = options?.expiresInMinutes ?? null;
+        if (typeof expiresInMinutes === "number") {
+            if (!Number.isFinite(expiresInMinutes) || expiresInMinutes <= 0) {
+                return { success: false, error: "Expiry must be greater than zero" };
+            }
+            if (expiresInMinutes > 10080) {
+                return { success: false, error: "Expiry cannot exceed 7 days" };
+            }
+        }
+        const expiresAt = expiresInMinutes && expiresInMinutes > 0
+            ? new Date(Date.now() + expiresInMinutes * 60 * 1000)
+            : null;
+
+        const passwordHash = await bcrypt.hash(normalizedPassword, 10);
 
         const file = await db.file.findFirst({
             where: { id: fileId, userId: user.id, isDeleted: false },
@@ -126,6 +137,15 @@ export async function createShareLink(fileId: string) {
 
         const existingShare = file.shares[0];
         if (existingShare?.shareLink) {
+            await db.share.update({
+                where: { id: existingShare.id },
+                data: {
+                    password: passwordHash,
+                    expiresAt,
+                    isPublic: true,
+                },
+            });
+
             return { success: true, shareLink: existingShare.shareLink };
         }
 
@@ -138,6 +158,8 @@ export async function createShareLink(fileId: string) {
                 userId: user.id,
                 shareLink,
                 isPublic: true,
+                password: passwordHash,
+                expiresAt,
             },
         });
 
@@ -145,6 +167,8 @@ export async function createShareLink(fileId: string) {
             fileId: file.id,
             fileName: file.fileName,
             shareLink,
+            hasPassword: true,
+            expiresAt: expiresAt?.toISOString() ?? null,
         });
 
         revalidatePath("/dashboard/shared");
@@ -173,7 +197,7 @@ export async function deleteFileAction(fileId: string) {
             return { success: false, error: "File not found" };
         }
 
-        const storagePath = extractStoragePath(file.fileUrl);
+        const storagePath = extractStoragePathFromUrl(file.fileUrl);
         if (!storagePath) {
             return { success: false, error: "Invalid storage URL for file" };
         }
@@ -220,5 +244,60 @@ export async function deleteFileAction(fileId: string) {
     } catch (error) {
         console.error("Delete file error:", error);
         return { success: false, error: "Unable to delete file" };
+    }
+}
+
+export async function revokeShareLink(fileId: string) {
+    try {
+        const user = await getSessionUser();
+        if (!user) {
+            return { success: false, error: "Not authenticated" };
+        }
+
+        const file = await db.file.findFirst({
+            where: {
+                id: fileId,
+                userId: user.id,
+                isDeleted: false,
+            },
+            select: {
+                id: true,
+                fileName: true,
+            },
+        });
+
+        if (!file) {
+            return { success: false, error: "File not found" };
+        }
+
+        const existingShare = await db.share.findFirst({
+            where: {
+                fileId: file.id,
+                userId: user.id,
+            },
+            select: {
+                id: true,
+            },
+        });
+
+        if (!existingShare) {
+            return { success: false, error: "Share link not found" };
+        }
+
+        await db.share.delete({ where: { id: existingShare.id } });
+
+        await logActivity(user.id, "FILE_UNSHARED", {
+            fileId: file.id,
+            fileName: file.fileName,
+        });
+
+        revalidatePath("/dashboard/files");
+        revalidatePath("/dashboard/shared");
+        revalidatePath("/dashboard/history");
+
+        return { success: true };
+    } catch (error) {
+        console.error("Revoke share link error:", error);
+        return { success: false, error: "Unable to revoke share link" };
     }
 }

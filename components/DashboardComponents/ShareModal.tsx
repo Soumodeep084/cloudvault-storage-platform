@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check, Link2 } from "lucide-react";
+import { Copy, Check, Link2, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +17,12 @@ interface ShareModalProps {
   onOpenChange: (open: boolean) => void;
   fileName: string;
   shareLink?: string;
+  expiresAt?: string | Date | null;
+  onCreateSecureLink: (options: {
+    password: string;
+    expiresInMinutes: number | null;
+  }) => Promise<void>;
+  isCreating?: boolean;
 }
 
 export function ShareModal({
@@ -24,15 +30,22 @@ export function ShareModal({
   onOpenChange,
   fileName,
   shareLink,
+  expiresAt,
+  onCreateSecureLink,
+  isCreating = false,
 }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
+  const [password, setPassword] = useState("");
+  const [expiryPreset, setExpiryPreset] = useState("10");
+  const [customValue, setCustomValue] = useState("10");
+  const [customUnit, setCustomUnit] = useState<"sec" | "min" | "hr">("min");
+  const [expiryError, setExpiryError] = useState<string | null>(null);
 
-  // Use the actual share link if available, otherwise a placeholder
-  const link =
-    shareLink ||
-    `https://cloudvault.io/s/${Math.random().toString(36).slice(2, 8)}`;
+  const link = shareLink || "";
 
   const handleCopy = async () => {
+    if (!link) return;
+
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
@@ -42,39 +55,212 @@ export function ShareModal({
     }
   };
 
+  const getExpiresInMinutes = () => {
+    if (expiryPreset === "lifetime") return { minutes: null, error: null };
+
+    if (expiryPreset !== "custom") {
+      const presetMinutes = Number(expiryPreset);
+      if (!Number.isFinite(presetMinutes) || presetMinutes <= 0) {
+        return { minutes: null, error: "Choose a valid expiry" };
+      }
+      return { minutes: presetMinutes, error: null };
+    }
+
+    const rawValue = Number(customValue);
+    if (!Number.isFinite(rawValue) || rawValue <= 0) {
+      return { minutes: null, error: "Enter a positive number" };
+    }
+
+    const minutes = customUnit === "sec" ? rawValue / 60 : customUnit === "hr" ? rawValue * 60 : rawValue;
+    if (minutes > 10080) {
+      return { minutes: null, error: "Maximum expiry is 7 days" };
+    }
+
+    return { minutes, error: null };
+  };
+
+  const getExpiryPreview = () => {
+    const { minutes } = getExpiresInMinutes();
+    if (minutes === null) return "Expiry: Lifetime";
+    if (minutes === null || minutes <= 0) return null;
+
+    const expiresAt = new Date(Date.now() + minutes * 60 * 1000);
+    return `Expiry: ${expiresAt.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })}`;
+  };
+
+  const getExistingExpiryLabel = () => {
+    if (expiresAt === undefined) return null;
+    if (expiresAt === null) return "Expiry: Lifetime";
+
+    const date = new Date(expiresAt);
+    return `Expiry: ${date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })}`;
+  };
+
+  const handleCreate = async () => {
+    const { minutes, error } = getExpiresInMinutes();
+    if (error) {
+      setExpiryError(error);
+      return;
+    }
+
+    setExpiryError(null);
+    await onCreateSecureLink({
+      password,
+      expiresInMinutes: minutes,
+    });
+  };
+
+  const isValidPassword = password.trim().length >= 6;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md p-0 overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Link2 className="h-5 w-5 text-primary" /> Share File
-          </DialogTitle>
-          <DialogDescription className="pt-2">
-            Anyone with the link can view{" "}
-            <span className="font-semibold text-foreground">"{fileName}"</span>
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex items-center space-x-2 mt-4">
-          <div className="grid flex-1 gap-2">
-            <Input
-              value={link}
-              readOnly
-              className="font-mono text-xs bg-muted/50 border-0 h-9"
-            />
+          <div className="border-b bg-linear-to-b from-slate-50 to-white px-5 py-4">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Link2 className="h-5 w-5 text-primary" /> Secure Share
+            </DialogTitle>
+            <DialogDescription className="pt-2 text-sm">
+              Share <span className="font-semibold text-foreground">&quot;{fileName}&quot;</span> with password and expiry control.
+            </DialogDescription>
           </div>
-          <Button onClick={handleCopy} size="sm" className="px-3" >
-            <span className="sr-only">Copy</span>
-            {copied ? (
-              <Check className="h-4 w-4" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )}
-          </Button>
+        </DialogHeader>
+
+        <div className="px-5 py-5 space-y-4">
+          {!shareLink ? (
+            <>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Password (required)
+                </label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Minimum 6 characters"
+                  className="h-10"
+                  disabled={isCreating}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Link expiry
+                </label>
+                <div className="space-y-2">
+                  <select
+                    value={expiryPreset}
+                    onChange={(e) => {
+                      setExpiryPreset(e.target.value);
+                      setExpiryError(null);
+                    }}
+                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40"
+                    disabled={isCreating}
+                  >
+                    <option value="5">5 minutes</option>
+                    <option value="10">10 minutes</option>
+                    <option value="20">20 minutes</option>
+                    <option value="1440">24 hours</option>
+                    <option value="10080">7 days</option>
+                    <option value="lifetime">Lifetime</option>
+                    <option value="custom">Custom Duration</option>
+                  </select>
+
+                  {expiryPreset === "custom" && (
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        value={customValue}
+                        onChange={(e) => {
+                          setCustomValue(e.target.value);
+                          setExpiryError(null);
+                        }}
+                        className="h-10"
+                        disabled={isCreating}
+                      />
+                      <select
+                        value={customUnit}
+                        onChange={(e) => {
+                          setCustomUnit(e.target.value as "sec" | "min" | "hr");
+                          setExpiryError(null);
+                        }}
+                        className="h-10 w-28 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40"
+                        disabled={isCreating}
+                      >
+                        <option value="sec">sec</option>
+                        <option value="min">min</option>
+                        <option value="hr">hr</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {expiryError && (
+                    <p className="text-xs text-rose-600">{expiryError}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="flex items-start gap-2 text-xs text-amber-800">
+                  <LockKeyhole className="h-4 w-4 shrink-0 mt-0.5" />
+                  Receiver must enter this password before preview or download.
+                </p>
+              </div>
+
+              <Button
+                onClick={handleCreate}
+                disabled={isCreating || !isValidPassword}
+                className="w-full h-10"
+              >
+                {isCreating ? "Creating secure link..." : "Create secure link"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                Secure share link is ready. Receiver must use your password to access the file.
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="grid flex-1 gap-2">
+                  <Input
+                    value={link}
+                    readOnly
+                    className="font-mono text-xs bg-muted/50 border-0 h-9"
+                  />
+                  {(getExistingExpiryLabel() || getExpiryPreview()) && (
+                    <p className="text-[11px] text-muted-foreground">
+                      {getExistingExpiryLabel() || getExpiryPreview()}
+                    </p>
+                  )}
+                </div>
+                <Button onClick={handleCopy} size="sm" className="px-3">
+                  <span className="sr-only">Copy</span>
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
-        <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
+
+        <div className="border-t bg-slate-50 px-5 py-3">
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            <strong>Pro Tip:</strong> Link sharing is public. Make sure you
-            trust the people you share with.
+            Share password separately using a trusted channel.
           </p>
         </div>
       </DialogContent>

@@ -28,6 +28,7 @@ export interface FileItem {
         modifiedAt?: string | Date;
         shared?: boolean;
     shareLink?: string;
+        shareExpiresAt?: string | Date | null;
         versions?: FileVersion[];
 
         // DB-oriented shape (Prisma File model)
