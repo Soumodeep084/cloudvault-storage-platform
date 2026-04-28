@@ -40,7 +40,7 @@ function stripNumberSuffix(baseName: string) {
     return baseName.replace(/\s\(\d+\)$/, "");
 }
 
-export function getUniqueFileName(originalName: string, existingNames: string[]) {
+function getUniqueFileName(originalName: string, existingNames: string[]) {
     const { baseName, extension } = splitFileName(originalName);
     const normalizedBase = stripNumberSuffix(baseName);
     const existingSet = new Set(existingNames);
