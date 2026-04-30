@@ -1,5 +1,7 @@
 import { getSessionUser } from "@/lib/auth-help";
 import { db } from "@/lib/prisma";
+import { supabaseAdmin } from "@/lib/supabase";
+import { extractStoragePathFromUrl } from "@/lib/storage-path";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -30,6 +32,27 @@ export async function GET(
 
   if (!file) {
     return NextResponse.json({ message: "File not found" }, { status: 404 });
+  }
+
+  const storagePath = extractStoragePathFromUrl(file.fileUrl);
+  if (supabaseAdmin && storagePath) {
+    const { data, error } = await supabaseAdmin.storage
+      .from("files")
+      .download(storagePath);
+
+    if (!error && data) {
+      const fileBuffer = Buffer.from(await data.arrayBuffer());
+      const contentType = file.fileType || data.type || "application/octet-stream";
+
+      return new NextResponse(fileBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": contentType,
+          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,
+          "Cache-Control": "private, no-store",
+        },
+      });
+    }
   }
 
   try {
