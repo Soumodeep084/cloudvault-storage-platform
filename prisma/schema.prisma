@@ -30,6 +30,8 @@ model User {
   name       String?
   role       Role    @default(USER)
   isVerified Boolean @default(false)
+  // emailNotifications Boolean @default(true)
+  // twoFactorEnabled   Boolean @default(false)
 
   storageUsed   BigInt    @default(0)
   
