@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Trash2, Share2, MoreHorizontal, AlertTriangle, Link2Off } from "lucide-react";
+import {
+  Download,
+  Trash2,
+  Share2,
+  MoreHorizontal,
+  AlertTriangle,
+  Link2Off,
+} from "lucide-react";
 import { formatFileSize, formatDate } from "@/lib/utils";
 import { FileIcon } from "@/components/DashboardComponents/FileIcon"; // Ensure this exists
 import { ShareModal } from "@/components/DashboardComponents/ShareModal";
@@ -22,8 +29,12 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { FileCategory, FileItem } from "@/types";
-import { createShareLink, deleteFileAction, revokeShareLink } from "@/app/actions/fileActions";
+import {  FileItem } from "@/types";
+import {
+  createShareLink,
+  deleteFileAction,
+  revokeShareLink,
+} from "@/app/actions/fileActions";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +43,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { normalizeFileType } from "@/lib/helper";
 
 function generateDeleteCode(length = 8) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -42,18 +54,21 @@ function generateDeleteCode(length = 8) {
   return code;
 }
 
-function normalizeFileType(file: FileItem): FileCategory {
-  const rawType = (file.type || file.fileType || "").toLowerCase();
-  const fileName = (file.name || file.fileName || "").toLowerCase();
+// function normalizeFileType(file: FileItem): FileCategory {
+//   const rawType = (file.type || file.fileType || "").toLowerCase();
+//   const fileName = (file.name || file.fileName || "").toLowerCase();
 
-  if (rawType.includes("pdf") || fileName.endsWith(".pdf")) return "pdf";
-  if (rawType.includes("image") && (fileName.endsWith(".png") || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".gif") || fileName.endsWith(".webp") || fileName.endsWith(".svg"))) return "image";
-  if (rawType.includes("video") || /(mp4|mov|mkv|avi|webm)$/i.test(fileName)) return "video";
-  if (rawType.includes("sheet") || rawType.includes("excel") || /(xls|xlsx|csv)$/i.test(fileName)) return "spreadsheet";
-  if (rawType.includes("archive") || /(zip|rar|7z|tar|gz)$/i.test(fileName)) return "archive";
-  if (rawType.includes("doc") || /(doc|docx|txt|md)$/i.test(fileName)) return "document";
-  return "other";
-}
+//   if (rawType.includes("pdf") || fileName.endsWith(".pdf")) return "pdf";
+//   if (rawType.includes("image") && (fileName.endsWith(".png") || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".gif") || fileName.endsWith(".webp") || fileName.endsWith(".svg"))) return "image";
+//   if (rawType.includes("video") || /(mp4|mov|mkv|avi|webm)$/i.test(fileName)) return "video";
+//   if (rawType.includes("sheet") || rawType.includes("excel") || /(xls|xlsx|csv|tsv)$/i.test(fileName)) return "spreadsheet";
+//   if (/(ppt|pptx|key|odp)$/i.test(fileName)) return "presentation";
+//   if (rawType.includes("archive") || /(zip|rar|7z|tar|gz)$/i.test(fileName)) return "archive";
+//   if (/(py|js|ts|tsx|jsx|java|c|h|cpp|cc|cs|go|rb|php|rs|swift|kt|scala|sh|sql|yml|yaml|json|xml|toml)$/i.test(fileName)) return "code";
+//   if (/(txt|md|log|rtf)$/i.test(fileName)) return "text";
+//   if (rawType.includes("doc") || /(doc|docx)$/i.test(fileName)) return "document";
+//   return "other";
+// }
 
 function getDisplayName(file: FileItem) {
   return file.name || file.fileName || "Untitled file";
@@ -64,7 +79,13 @@ function getDisplaySize(file: FileItem) {
 }
 
 function getDisplayDate(file: FileItem) {
-  return file.modifiedAt || file.updatedAt || file.uploadedAt || file.createdAt || new Date();
+  return (
+    file.modifiedAt ||
+    file.updatedAt ||
+    file.uploadedAt ||
+    file.createdAt ||
+    new Date()
+  );
 }
 
 function isShared(file: FileItem) {
@@ -76,11 +97,17 @@ function isShareExpired(file: FileItem) {
   return new Date(file.shareExpiresAt).getTime() < Date.now();
 }
 
-export default function FilesClient({ initialFiles }: { initialFiles: FileItem[] }) {
+export default function FilesClient({
+  initialFiles,
+}: {
+  initialFiles: FileItem[];
+}) {
   const [files, setFiles] = useState(initialFiles);
   const [shareFile, setShareFile] = useState<FileItem | null>(null);
   const [isCreatingShare, setIsCreatingShare] = useState(false);
-  const [isRevokingShareId, setIsRevokingShareId] = useState<string | null>(null);
+  const [isRevokingShareId, setIsRevokingShareId] = useState<string | null>(
+    null,
+  );
   const [deleteFile, setDeleteFile] = useState<FileItem | null>(null);
   const [deleteStep, setDeleteStep] = useState<"confirm" | "verify">("confirm");
   const [deleteCode, setDeleteCode] = useState("");
@@ -150,7 +177,12 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
 
   const handleShare = async (file: FileItem) => {
     if (isShareExpired(file)) {
-      setShareFile({ ...file, shareLink: undefined, shared: false, shareExpiresAt: null });
+      setShareFile({
+        ...file,
+        shareLink: undefined,
+        shared: false,
+        shareExpiresAt: null,
+      });
       return;
     }
     setShareFile(file);
@@ -183,7 +215,9 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
       shared: true,
       shareExpiresAt,
     };
-    setFiles((prev) => prev.map((f) => (f.id === shareFile.id ? updatedFile : f)));
+    setFiles((prev) =>
+      prev.map((f) => (f.id === shareFile.id ? updatedFile : f)),
+    );
     setShareFile(updatedFile);
     toast.success("Secure share link created");
   };
@@ -204,7 +238,9 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
     }
 
     setFiles((prev) =>
-      prev.map((f) => (f.id === file.id ? { ...f, shareLink: undefined, shared: false } : f)),
+      prev.map((f) =>
+        f.id === file.id ? { ...f, shareLink: undefined, shared: false } : f,
+      ),
     );
 
     if (shareFile?.id === file.id) {
@@ -277,11 +313,19 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
                             <span className="h-1 w-1 rounded-full bg-muted-foreground/50" />
                             <span>{formatDate(getDisplayDate(file))}</span>
                             {isShareExpired(file) ? (
-                              <Badge className="h-5 px-2 border-rose-200 bg-rose-50 text-rose-700" variant="outline">
+                              <Badge
+                                className="h-5 px-2 border-rose-200 bg-rose-50 text-rose-700"
+                                variant="outline"
+                              >
                                 Expired
                               </Badge>
                             ) : (
-                              <Badge variant={isShared(file) ? "secondary" : "outline"} className="h-5 px-2">
+                              <Badge
+                                variant={
+                                  isShared(file) ? "secondary" : "outline"
+                                }
+                                className="h-5 px-2"
+                              >
                                 {isShared(file) ? "Shared" : "Private"}
                               </Badge>
                             )}
@@ -297,7 +341,10 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {isShareExpired(file) ? (
-                        <Badge className="border-rose-200 bg-rose-50 text-rose-700" variant="outline">
+                        <Badge
+                          className="border-rose-200 bg-rose-50 text-rose-700"
+                          variant="outline"
+                        >
                           Expired
                         </Badge>
                       ) : isShared(file) ? (
@@ -309,12 +356,18 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
                     <TableCell className="pr-4 text-right align-middle">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="subtle" size="icon" className="h-8 w-8">
+                          <Button
+                            variant="subtle"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem onClick={() => handleDownload(file)}>
+                          <DropdownMenuItem
+                            onClick={() => handleDownload(file)}
+                          >
                             <Download className="mr-2 h-4 w-4" /> Download
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleShare(file)}>
@@ -332,7 +385,9 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
                               className="text-amber-700 focus:bg-amber-50 focus:text-amber-700"
                             >
                               <Link2Off className="mr-2 h-4 w-4" />
-                              {isRevokingShareId === file.id ? "Stopping..." : "Stop sharing"}
+                              {isRevokingShareId === file.id
+                                ? "Stopping..."
+                                : "Stop sharing"}
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
@@ -362,8 +417,14 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
         isCreating={isCreatingShare}
       />
 
-      <Dialog open={!!deleteFile} onOpenChange={(open) => (!open ? resetDeleteDialog() : undefined)}>
-        <DialogContent className="sm:max-w-lg p-0 overflow-hidden" showCloseButton={!isDeleting}>
+      <Dialog
+        open={!!deleteFile}
+        onOpenChange={(open) => (!open ? resetDeleteDialog() : undefined)}
+      >
+        <DialogContent
+          className="sm:max-w-lg p-0 overflow-hidden"
+          showCloseButton={!isDeleting}
+        >
           <div className="border-b bg-linear-to-b from-rose-50 to-white px-6 py-5">
             <DialogHeader className="gap-3">
               <div className="flex items-start gap-3">
@@ -386,7 +447,9 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
 
           <div className="px-6 py-5 space-y-4">
             <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3.5">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Selected file</p>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+                Selected file
+              </p>
               <p className="mt-1 text-sm font-medium text-slate-900 break-all">
                 {deleteFile ? getDisplayName(deleteFile) : ""}
               </p>
@@ -395,7 +458,11 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
             {deleteStep === "verify" && (
               <div className="space-y-3">
                 <p className="text-sm text-slate-600">
-                  Enter <span className="font-semibold text-rose-600">&quot;{deleteCode}&quot;</span> to permanently delete this file.
+                  Enter{" "}
+                  <span className="font-semibold text-rose-600">
+                    &quot;{deleteCode}&quot;
+                  </span>{" "}
+                  to permanently delete this file.
                 </p>
 
                 <Input
@@ -411,7 +478,12 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
           </div>
 
           <div className="flex items-center justify-end gap-2 border-t bg-slate-50 px-6 py-4">
-            <Button variant="outline" onClick={resetDeleteDialog} disabled={isDeleting} className="h-9">
+            <Button
+              variant="outline"
+              onClick={resetDeleteDialog}
+              disabled={isDeleting}
+              className="h-9"
+            >
               Cancel
             </Button>
 
@@ -425,7 +497,9 @@ export default function FilesClient({ initialFiles }: { initialFiles: FileItem[]
             ) : (
               <Button
                 onClick={handleDelete}
-                disabled={isDeleting || deleteInput.trim().toUpperCase() !== deleteCode}
+                disabled={
+                  isDeleting || deleteInput.trim().toUpperCase() !== deleteCode
+                }
                 className="h-9 bg-rose-600 text-white hover:bg-rose-700 disabled:bg-rose-300"
               >
                 {isDeleting ? "Deleting..." : "Permanently delete"}

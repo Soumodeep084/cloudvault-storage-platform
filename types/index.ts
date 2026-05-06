@@ -10,36 +10,40 @@ export interface User {
 }
 
 export type FileCategory =
-    | 'pdf'
-    | 'image'
-    | 'video'
-    | 'document'
-    | 'spreadsheet'
-    | 'archive'
-    | 'other';
+    | "pdf"
+    | "image"
+    | "video"
+    | "audio"
+    | "spreadsheet"
+    | "presentation"
+    | "document"
+    | "archive"
+    | "code"
+    | "text"
+    | "other";
 
 export interface FileItem {
     id: string;
-        // UI-oriented shape
-        name?: string;
-        type?: FileCategory;
-        size?: number | null;
-        uploadedAt?: string | Date;
-        modifiedAt?: string | Date;
-        shared?: boolean;
+    // UI-oriented shape
+    name?: string;
+    type?: FileCategory;
+    size?: number | null;
+    uploadedAt?: string | Date;
+    modifiedAt?: string | Date;
+    shared?: boolean;
     shareLink?: string;
-        shareExpiresAt?: string | Date | null;
+    shareExpiresAt?: string | Date | null;
 
-        // DB-oriented shape (Prisma File model)
-        userId?: string;
-        ownerId?: string;
-        fileName?: string;
-        fileUrl?: string;
-        fileSize?: number | null;
-        fileType?: string | null;
-        isDeleted?: boolean;
-        createdAt?: string | Date;
-        updatedAt?: string | Date;
+    // DB-oriented shape (Prisma File model)
+    userId?: string;
+    ownerId?: string;
+    fileName?: string;
+    fileUrl?: string;
+    fileSize?: number | null;
+    fileType?: string | null;
+    isDeleted?: boolean;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
 }
 
 export interface AdminStats {

@@ -42,9 +42,12 @@ function toFileCategory(fileType: string | null, fileName: string): FileCategory
   if (rawType.includes("pdf") || lowerName.endsWith(".pdf")) return "pdf";
   if (rawType.includes("image") || /(png|jpg|jpeg|gif|webp|svg)$/i.test(lowerName)) return "image";
   if (rawType.includes("video") || /(mp4|mov|mkv|avi|webm)$/i.test(lowerName)) return "video";
-  if (rawType.includes("sheet") || rawType.includes("excel") || /(xls|xlsx|csv)$/i.test(lowerName)) return "spreadsheet";
+  if (rawType.includes("sheet") || rawType.includes("excel") || /(xls|xlsx|csv|tsv)$/i.test(lowerName)) return "spreadsheet";
+  if (/(ppt|pptx|key|odp)$/i.test(lowerName)) return "presentation";
   if (rawType.includes("archive") || /(zip|rar|7z|tar|gz)$/i.test(lowerName)) return "archive";
-  if (rawType.includes("doc") || /(doc|docx|txt|md)$/i.test(lowerName)) return "document";
+  if (/(py|js|ts|tsx|jsx|java|c|h|cpp|cc|cs|go|rb|php|rs|swift|kt|scala|sh|sql|yml|yaml|json|xml|toml)$/i.test(lowerName)) return "code";
+  if (/(txt|md|log|rtf)$/i.test(lowerName)) return "text";
+  if (rawType.includes("doc") || /(doc|docx)$/i.test(lowerName)) return "document";
   return "other";
 }
 
