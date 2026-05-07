@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { Download, Eye, ShieldCheck, LockKeyhole } from "lucide-react";
@@ -103,7 +102,9 @@ export default async function PublicSharePage({
   if (!hasAccess) {
     const errorMessage = resolvedSearchParams.error === "invalid-password"
       ? "Incorrect password. Please try again."
-      : null;
+      : resolvedSearchParams.error === "auth-required"
+        ? "Please enter the password to access this file."
+        : null;
 
     return (
       <main className="min-h-screen bg-linear-to-b from-slate-50 via-white to-slate-100 px-4 py-8 sm:px-6 sm:py-14">
@@ -176,7 +177,7 @@ export default async function PublicSharePage({
         </div>
 
         <div className="mt-5 grid gap-2 sm:mt-6 sm:grid-cols-2">
-          <Link
+          <a
             href={`/api/public-share/${encodeURIComponent(token)}/preview`}
             target="_blank"
             rel="noopener noreferrer"
@@ -184,15 +185,15 @@ export default async function PublicSharePage({
           >
             <Eye className="h-4 w-4" />
             Preview File
-          </Link>
+          </a>
 
-          <Link
+          <a
             href={`/api/public-share/${encodeURIComponent(token)}/download`}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white transition-colors hover:bg-slate-800"
           >
             <Download className="h-4 w-4" />
             Download File
-          </Link>
+          </a>
         </div>
       </div>
     </main>

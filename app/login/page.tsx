@@ -36,6 +36,10 @@ export default function LoginPage() {
         router.refresh();
       } else {
         switch (result.status) {
+          case 403:
+            toast.message("Please verify your email to continue.");
+            router.push("/verify-email");
+            break;
           case 401:
             toast.error("Invalid email or password");
             break;

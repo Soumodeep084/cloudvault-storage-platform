@@ -3,6 +3,11 @@
 import { db } from "@/lib/prisma";
 import { loginSchema, signupSchema } from "@/lib/validations/auth";
 import { hashPassword, comparePasswords, createSession, getSessionUser } from "@/lib/auth-help";
+import { sendVerificationEmail } from "@/lib/email";
+import {
+  issueEmailVerificationToken,
+  VERIFY_EMAIL_TTL_MINUTES,
+} from "@/lib/email-verification";
 import { ActionResponse } from "@/types/auth";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -10,6 +15,27 @@ import { z } from "zod";
 
 type SignupInput = z.infer<typeof signupSchema>;
 type LoginInput = z.infer<typeof loginSchema>;
+
+function getAppBaseUrl() {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000"
+  );
+}
+
+async function sendVerifyEmail(user: { id: string; email: string; name?: string | null }) {
+  const tokenResult = await issueEmailVerificationToken(user.id, { bypassCooldown: true });
+  if (!tokenResult.allowed || !tokenResult.token) return;
+
+  const verifyUrl = `${getAppBaseUrl()}/api/auth/verify-email?token=${tokenResult.token}`;
+  await sendVerificationEmail({
+    to: user.email,
+    name: user.name,
+    verifyUrl,
+    expiresInMinutes: VERIFY_EMAIL_TTL_MINUTES,
+  });
+}
 
 // Status Codes: 201 (Created), 400 (Bad Request), 409 (Conflict), 500 (Server Error)
 export async function signUpAction(values: SignupInput): Promise<ActionResponse> {
@@ -47,9 +73,20 @@ export async function signUpAction(values: SignupInput): Promise<ActionResponse>
       data: { email: normalizedEmail, name: normalizedName, password: hashedPassword },
     });
 
+    try {
+      await sendVerifyEmail(user);
+    } catch (error) {
+      console.error("VERIFY_EMAIL_SEND_ERROR:", error);
+    }
+
     await createSession(user.id);
 
-    return { success: true, message: "Account created", status: 201 };
+    return {
+      success: true,
+      message: "Account created. Please verify your email.",
+      status: 201,
+      data: { requiresVerification: true },
+    };
   } catch (error) {
     // Handles race conditions where two signup requests hit at the same time.
     if (
@@ -93,6 +130,31 @@ export async function loginAction(values: LoginInput): Promise<ActionResponse> {
       return { success: false, message: "Invalid credentials", status: 401 };
     }
 
+    if (!user.isVerified) {
+      await createSession(user.id);
+      try {
+        const tokenResult = await issueEmailVerificationToken(user.id);
+        if (tokenResult.allowed && tokenResult.token) {
+          const verifyUrl = `${getAppBaseUrl()}/api/auth/verify-email?token=${tokenResult.token}`;
+          await sendVerificationEmail({
+            to: user.email,
+            name: user.name,
+            verifyUrl,
+            expiresInMinutes: VERIFY_EMAIL_TTL_MINUTES,
+          });
+        }
+      } catch (error) {
+        console.error("VERIFY_EMAIL_RESEND_ERROR:", error);
+      }
+
+      return {
+        success: false,
+        message: "Email not verified",
+        status: 403,
+        data: { requiresVerification: true },
+      };
+    }
+
     await createSession(user.id);
 
     return { 
@@ -103,6 +165,39 @@ export async function loginAction(values: LoginInput): Promise<ActionResponse> {
     };
   } catch (error) {
     return { success: false, message: "Internal Server Error", status: 500 };
+  }
+}
+
+export async function resendVerificationEmailAction(): Promise<ActionResponse> {
+  try {
+    const user = await getSessionUser();
+    if (!user) return { success: false, message: "Unauthorized", status: 401 };
+    if (user.isVerified) {
+      return { success: false, message: "Email already verified", status: 409 };
+    }
+
+    const tokenResult = await issueEmailVerificationToken(user.id);
+    if (!tokenResult.allowed) {
+      return {
+        success: false,
+        message: "Verification email was sent recently. Try again soon.",
+        status: 429,
+        data: { retryAfterSeconds: tokenResult.retryAfterSeconds ?? 0 },
+      };
+    }
+
+    const verifyUrl = `${getAppBaseUrl()}/api/auth/verify-email?token=${tokenResult.token}`;
+    await sendVerificationEmail({
+      to: user.email,
+      name: user.name,
+      verifyUrl,
+      expiresInMinutes: VERIFY_EMAIL_TTL_MINUTES,
+    });
+
+    return { success: true, message: "Verification email sent", status: 200 };
+  } catch (error) {
+    console.error("RESEND_VERIFY_EMAIL_ERROR:", error);
+    return { success: false, message: "Failed to send email", status: 500 };
   }
 }
 

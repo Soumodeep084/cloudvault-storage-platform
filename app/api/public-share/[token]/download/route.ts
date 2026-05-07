@@ -52,7 +52,7 @@ export async function GET(
   if (share.password) {
     const accessCookie = request.cookies.get(getShareAccessCookieName(share.id))?.value;
     if (accessCookie !== token) {
-      return NextResponse.json({ message: "Password validation required" }, { status: 401 });
+      return NextResponse.redirect(new URL(`/s/${token}?error=auth-required`, request.url));
     }
   }
 

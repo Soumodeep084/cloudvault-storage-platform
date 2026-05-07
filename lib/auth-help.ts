@@ -61,6 +61,7 @@ export async function getSessionUser() {
             name: true,
             email: true,
             role: true,
+            isVerified: true,
           },
         },
       },

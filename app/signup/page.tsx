@@ -32,8 +32,8 @@ export default function SignupPage() {
       const result = await signUpAction({ name, email, password });
 
       if (result.success) {
-        toast.success("Account created successfully!");
-        router.push("/dashboard");
+        toast.success("Account created. Please verify your email.");
+        router.push("/verify-email");
         router.refresh();
       } else {
         if (result.status === 409) {

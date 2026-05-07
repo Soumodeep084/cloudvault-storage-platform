@@ -19,6 +19,10 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  if (!user.isVerified) {
+    redirect("/verify-email");
+  }
+
   const storage = await db.file.aggregate({
     where: { userId: user.id, isDeleted: false },
     _sum: { fileSize: true },
