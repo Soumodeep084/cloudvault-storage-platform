@@ -33,6 +33,10 @@ export default function SignupPage() {
 
       if (result.success) {
         toast.success("Account created. Please verify your email.");
+        if (typeof window !== "undefined") {
+          const nextCooldown = result.data?.retryAfterSeconds ?? 120;
+          window.sessionStorage.setItem("verifyEmailCooldownSeconds", String(nextCooldown));
+        }
         router.push("/verify-email");
         router.refresh();
       } else {

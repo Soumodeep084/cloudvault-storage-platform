@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MailCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,75 @@ export default function VerifyEmailClient({
   canResend: boolean;
 }) {
   const [loading, setLoading] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
+  const cooldownStorageKey = "verifyEmailCooldownExpiresAt";
+
+  const startCooldown = (seconds: number) => {
+    const safeSeconds = Math.max(0, Math.floor(seconds));
+    setCooldownSeconds(safeSeconds);
+    if (typeof window !== "undefined" && safeSeconds > 0) {
+      const expiresAt = Date.now() + safeSeconds * 1000;
+      window.sessionStorage.setItem(cooldownStorageKey, String(expiresAt));
+    }
+  };
+
+  useEffect(() => {
+    if (!canResend || status === "success") return;
+    if (typeof window === "undefined") return;
+
+    const storedSeconds = window.sessionStorage.getItem("verifyEmailCooldownSeconds");
+    const storedExpiresAt = window.sessionStorage.getItem(cooldownStorageKey);
+
+    if (storedExpiresAt) {
+      const expiresAt = Number(storedExpiresAt);
+      if (Number.isFinite(expiresAt)) {
+        const remaining = Math.ceil((expiresAt - Date.now()) / 1000);
+        if (remaining > 0) {
+          setCooldownSeconds(remaining);
+          return;
+        }
+      }
+      window.sessionStorage.removeItem(cooldownStorageKey);
+    }
+
+    if (storedSeconds) {
+      window.sessionStorage.removeItem("verifyEmailCooldownSeconds");
+      const initialCooldown = Number(storedSeconds);
+      if (Number.isFinite(initialCooldown) && initialCooldown > 0) {
+        startCooldown(initialCooldown);
+      }
+    }
+  }, [canResend, status]);
+
+  useEffect(() => {
+    if (!cooldownSeconds || cooldownSeconds <= 0) return;
+
+    const intervalId = window.setInterval(() => {
+      const storedExpiresAt = window.sessionStorage.getItem(cooldownStorageKey);
+      if (storedExpiresAt) {
+        const expiresAt = Number(storedExpiresAt);
+        if (Number.isFinite(expiresAt)) {
+          const remaining = Math.ceil((expiresAt - Date.now()) / 1000);
+          if (remaining > 0) {
+            setCooldownSeconds(remaining);
+            return;
+          }
+        }
+        window.sessionStorage.removeItem(cooldownStorageKey);
+      }
+
+      setCooldownSeconds(0);
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [cooldownSeconds]);
+
+  const formattedCooldown = useMemo(() => {
+    if (!cooldownSeconds || cooldownSeconds <= 0) return null;
+    const minutes = Math.floor(cooldownSeconds / 60);
+    const seconds = cooldownSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }, [cooldownSeconds]);
 
   const handleResend = async () => {
     setLoading(true);
@@ -44,8 +113,16 @@ export default function VerifyEmailClient({
       const result = await resendVerificationEmailAction();
       if (result.success) {
         toast.success("Verification email sent");
+        const nextCooldown = result.data?.retryAfterSeconds ?? null;
+        if (nextCooldown && nextCooldown > 0) {
+          startCooldown(nextCooldown);
+        }
       } else if (result.status === 429) {
         toast.message("Please wait before requesting another email.");
+        const retryAfter = result.data?.retryAfterSeconds ?? null;
+        if (retryAfter && retryAfter > 0) {
+          startCooldown(retryAfter);
+        }
       } else {
         toast.error(result.message || "Failed to send verification email");
       }
@@ -84,7 +161,11 @@ export default function VerifyEmailClient({
               </Link>
             </Button>
           ) : canResend ? (
-            <Button onClick={handleResend} className="w-full" disabled={loading}>
+            <Button
+              onClick={handleResend}
+              className="w-full"
+              disabled={loading || Boolean(cooldownSeconds && cooldownSeconds > 0)}
+            >
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Resend verification email"}
             </Button>
           ) : (
@@ -92,6 +173,12 @@ export default function VerifyEmailClient({
               <Link href="/login">Sign in to resend</Link>
             </Button>
           )}
+
+          {canResend && formattedCooldown ? (
+            <p className="text-center text-sm text-muted-foreground">
+              You can request another email in {formattedCooldown}.
+            </p>
+          ) : null}
 
           <p className="text-center text-sm text-muted-foreground">
             Need to use a different email?{" "}

@@ -7,6 +7,7 @@ import { sendVerificationEmail } from "@/lib/email";
 import {
   issueEmailVerificationToken,
   VERIFY_EMAIL_TTL_MINUTES,
+  VERIFY_EMAIL_RESEND_COOLDOWN_MINUTES,
 } from "@/lib/email-verification";
 import { ActionResponse } from "@/types/auth";
 import { cookies } from "next/headers";
@@ -85,7 +86,10 @@ export async function signUpAction(values: SignupInput): Promise<ActionResponse>
       success: true,
       message: "Account created. Please verify your email.",
       status: 201,
-      data: { requiresVerification: true },
+      data: {
+        requiresVerification: true,
+        retryAfterSeconds: VERIFY_EMAIL_RESEND_COOLDOWN_MINUTES * 60,
+      },
     };
   } catch (error) {
     // Handles race conditions where two signup requests hit at the same time.
@@ -194,7 +198,12 @@ export async function resendVerificationEmailAction(): Promise<ActionResponse> {
       expiresInMinutes: VERIFY_EMAIL_TTL_MINUTES,
     });
 
-    return { success: true, message: "Verification email sent", status: 200 };
+    return {
+      success: true,
+      message: "Verification email sent",
+      status: 200,
+      data: { retryAfterSeconds: VERIFY_EMAIL_RESEND_COOLDOWN_MINUTES * 60 },
+    };
   } catch (error) {
     console.error("RESEND_VERIFY_EMAIL_ERROR:", error);
     return { success: false, message: "Failed to send email", status: 500 };

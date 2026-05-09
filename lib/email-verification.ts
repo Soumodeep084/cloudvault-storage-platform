@@ -3,7 +3,7 @@ import { TokenType } from "@prisma/client";
 import { db } from "@/lib/prisma";
 
 export const VERIFY_EMAIL_TTL_MINUTES = 5;
-const VERIFY_EMAIL_RESEND_COOLDOWN_MINUTES = 2;
+export const VERIFY_EMAIL_RESEND_COOLDOWN_MINUTES = 2;
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
