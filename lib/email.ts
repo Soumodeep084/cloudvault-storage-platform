@@ -14,6 +14,13 @@ type SendDeletionOtpEmailInput = {
   expiresInMinutes: number;
 };
 
+type SendRestoreOtpEmailInput = {
+  to: string;
+  name?: string | null;
+  otp: string | undefined;
+  expiresInMinutes: number;
+};
+
 type SendDeletionScheduledEmailInput = {
   to: string;
   name?: string | null;
@@ -103,6 +110,38 @@ function buildDeletionOtpEmailText(otp: string | undefined, expiresInMinutes: nu
   ].join("\n");
 }
 
+function buildRestoreOtpEmailHtml(name: string | null | undefined, otp: string | undefined, expiresInMinutes: number) {
+  const greeting = name ? `Hi ${name},` : "Hi,";
+  const signature = process.env.EMAIL_SIGNATURE || "- CloudVault Team";
+  return `
+    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
+      <p>${greeting}</p>
+      <p>We received a request to restore your CloudVault account.</p>
+      <p>
+        Use this one-time code to continue the restore process:
+        <strong style="display: inline-block; margin-left: 6px; font-size: 18px; letter-spacing: 2px;">${otp}</strong>
+      </p>
+      <p>This code expires in ${expiresInMinutes} minutes.</p>
+      <p>If you did not request this, you can safely ignore this email.</p>
+      <p style="color: #b91c1c; font-weight: 600;">This is a system-generated email. Please do not reply.</p>
+      <p>${signature}</p>
+    </div>
+  `;
+}
+
+function buildRestoreOtpEmailText(otp: string | undefined, expiresInMinutes: number) {
+  const signature = process.env.EMAIL_SIGNATURE || "- CloudVault Team";
+  return [
+    "We received a request to restore your CloudVault account.",
+    "",
+    `Use this one-time code to continue the restore process (expires in ${expiresInMinutes} minutes):`,
+    otp,
+    "",
+    "If you did not request this, you can safely ignore this email.",
+    signature,
+  ].join("\n");
+}
+
 function buildDeletionScheduledEmailHtml(
   name: string | null | undefined,
   scheduledFor: Date,
@@ -175,6 +214,24 @@ export async function sendDeletionOtpEmail({
     subject: "CloudVault account deletion code",
     text: buildDeletionOtpEmailText(otp, expiresInMinutes),
     html: buildDeletionOtpEmailHtml(name, otp, expiresInMinutes),
+  });
+}
+
+export async function sendRestoreOtpEmail({
+  to,
+  name,
+  otp,
+  expiresInMinutes,
+}: SendRestoreOtpEmailInput) {
+  const transporter = getTransporter();
+  const from = process.env.EMAIL_FROM || process.env.GMAIL_USER || "CloudVault <no-reply@cloudvault.app>";
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: "CloudVault account restore code",
+    text: buildRestoreOtpEmailText(otp, expiresInMinutes),
+    html: buildRestoreOtpEmailHtml(name, otp, expiresInMinutes),
   });
 }
 

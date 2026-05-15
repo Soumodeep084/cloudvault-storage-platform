@@ -28,12 +28,12 @@ import {
 } from "@/components/ui/alert-dialog";
 // import { Switch } from "@/components/ui/switch";
 // import { Separator } from "@/components/ui/separator";
+import { updateProfileAction } from "@/app/actions/profileActions";
 import {
   deleteAccountAction,
   requestAccountDeletionOtpAction,
-  updateProfileAction,
   verifyAccountDeletionOtpAction,
-} from "@/app/actions/userActions";
+} from "@/app/actions/accountDeletionActions";
 
 const STORAGE_LIMIT = 50 * 1024 * 1024;
 

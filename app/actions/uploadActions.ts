@@ -6,6 +6,8 @@ export async function getPresignedUrl(fileName: string) {
     const user = await getSessionUser();
     if (!user) throw new Error("Unauthorized");
 
+    if (!supabaseAdmin) throw new Error("Supabase admin client is not configured");
+
     const path = `${user.id}/${Date.now()}-${fileName}`;
 
     // Generate a signed URL for uploading (valid for 5 minutes)

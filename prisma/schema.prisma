@@ -15,6 +15,7 @@ enum TokenType {
   VERIFY_EMAIL
   RESET_PASSWORD
   ACCOUNT_DELETE_OTP
+  ACCOUNT_RESTORE_OTP
 }
 
 enum ActivityAction {
@@ -67,6 +68,7 @@ model Token {
   token     String    @unique
   type      TokenType
   expiresAt DateTime
+  attempts  Int       @default(0)
   createdAt DateTime  @default(now())
 
   // Added onDelete: Cascade

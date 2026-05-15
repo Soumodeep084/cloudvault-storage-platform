@@ -3,12 +3,23 @@ import { AlertTriangle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/auth-help";
 
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@cloudvault.app";
 
 export default async function AccountDeletedPage() {
+  const sessionUser = await getSessionUser();
+  if (sessionUser && !sessionUser.deleted) {
+    redirect("/dashboard");
+  }
+
   const cookieStore = await cookies();
   const scheduledAtValue = cookieStore.get("account_deletion_scheduled_at")?.value;
+  if (!sessionUser && !scheduledAtValue) {
+    redirect("/login");
+  }
+
   const scheduledAt = scheduledAtValue ? new Date(scheduledAtValue) : null;
   const isValidDate = scheduledAt && !Number.isNaN(scheduledAt.getTime());
 
@@ -41,6 +52,18 @@ export default async function AccountDeletedPage() {
           <div className="rounded-lg border border-rose-100 bg-rose-50/60 p-4 text-sm text-slate-700">
             <p className="font-semibold text-rose-600">Scheduled deletion</p>
             <p>{formattedDate}</p>
+          </div>
+
+          <div className="rounded-xl border border-emerald-100 bg-linear-to-br from-emerald-50 via-white to-amber-50 p-5 text-sm text-slate-700 shadow-sm">
+            <p className="text-base font-semibold text-emerald-700">Restore your account</p>
+            <p className="mt-1 text-slate-600">
+              Verify ownership and regain access before the deletion date.
+            </p>
+            <div className="mt-4">
+              <Button asChild className="w-full">
+                <Link href="/account-deleted/restore">Start restore</Link>
+              </Button>
+            </div>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-700">

@@ -1,0 +1,5 @@
+-- AlterEnum
+ALTER TYPE "TokenType" ADD VALUE 'ACCOUNT_RESTORE_OTP';
+
+-- AlterTable
+ALTER TABLE "Token" ADD COLUMN     "attempts" INTEGER NOT NULL DEFAULT 0;
