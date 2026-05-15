@@ -83,5 +83,6 @@ export async function consumeAccountDeletionOtp(userId: string, otp: string) {
 }
 
 export function getDeletionScheduleDate() {
-  return new Date(Date.now() + ACCOUNT_DELETE_SCHEDULE_DAYS * 24 * 60 * 60 * 1000);
+  return new Date(Date.now() + 5 * 60 * 1000);
+  // return new Date(Date.now() + ACCOUNT_DELETE_SCHEDULE_DAYS * 24 * 60 * 60 * 1000);
 }
