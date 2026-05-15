@@ -2,7 +2,7 @@
 import { supabaseAdmin } from "@/lib/supabase"; // Use the admin client with Service Key
 import { getSessionUser } from "@/lib/auth-help";
 
-export async function getPresignedUrl(fileName: string, fileType: string) {
+export async function getPresignedUrl(fileName: string) {
     const user = await getSessionUser();
     if (!user) throw new Error("Unauthorized");
 

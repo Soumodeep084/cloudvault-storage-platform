@@ -1,18 +1,8 @@
 import { notFound, redirect } from "next/navigation";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { Download, Eye, ShieldCheck, LockKeyhole } from "lucide-react";
 import { db } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-
-function getClientIpFromHeaders(requestHeaders: Headers): string | null {
-  const forwarded = requestHeaders.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0]?.trim() || null;
-  }
-
-  const realIp = requestHeaders.get("x-real-ip");
-  return realIp?.trim() || null;
-}
 
 function getShareAccessCookieName(shareId: string) {
   return `share_access_${shareId}`;

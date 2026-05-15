@@ -12,7 +12,7 @@ const adapter = new PrismaPg(pool);
 export const db =
   globalForDB.db ||
   new PrismaClient({
-    // @ts-ignore - Sometimes TS takes a second to catch up to the new adapter type
+    // @ts-expect-error - Sometimes TS takes a second to catch up to the new adapter type
     adapter: adapter,
   });
 

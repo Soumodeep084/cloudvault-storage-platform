@@ -37,6 +37,11 @@ export default function LoginPage() {
       } else {
         switch (result.status) {
           case 403:
+            if (result.data?.deleted) {
+              toast.error("Account scheduled for deletion. Contact support to recover.");
+              router.push("/account-deleted");
+              break;
+            }
             toast.message("Please verify your email to continue.");
             router.push("/verify-email");
             break;
@@ -50,7 +55,7 @@ export default function LoginPage() {
             toast.error(result.message || "Something went wrong");
         }
       }
-    } catch (error) {
+    } catch {
       toast.error("Network error. Please try again.");
     } finally {
       setLoading(false);
@@ -100,7 +105,7 @@ export default function LoginPage() {
             </Button>
           </form>
           <p className="text-center text-sm text-muted-foreground mt-4">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
               href="/signup"
               className="text-primary hover:underline font-medium"

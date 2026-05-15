@@ -115,7 +115,7 @@ export default async function DashboardHome() {
           Welcome back, {user?.name?.split(" ")[0]}!
         </h1>
         <p className="text-muted-foreground">
-          Here's an overview of your files
+          Here&apos;s an overview of your files
         </p>
       </div>
 

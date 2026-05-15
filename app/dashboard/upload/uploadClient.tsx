@@ -18,6 +18,8 @@ interface UploadingFile {
   status: "uploading" | "complete" | "error";
 }
 
+type RecordFileUploadResult = Awaited<ReturnType<typeof recordFileUpload>>;
+
 export default function UploadClient({ userId }: { userId: string }) {
   const [files, setFiles] = useState<UploadingFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -40,7 +42,7 @@ export default function UploadClient({ userId }: { userId: string }) {
 
       try {
         // 1. Get a Signed URL from the server (bypasses RLS)
-        const { uploadUrl, path } = await getPresignedUrl(file.name, file.type);
+        const { uploadUrl, path } = await getPresignedUrl(file.name);
 
         // 2. Use XMLHttpRequest for progress tracking
         const xhr = new XMLHttpRequest();
@@ -79,7 +81,7 @@ export default function UploadClient({ userId }: { userId: string }) {
         } = supabase.storage.from("files").getPublicUrl(path);
 
         // 4. Sync to Prisma via Server Action
-        const dbResult = await recordFileUpload({
+        const dbResult: RecordFileUploadResult = await recordFileUpload({
           userId,
           fileName: file.name,
           fileUrl: publicUrl,
@@ -89,9 +91,10 @@ export default function UploadClient({ userId }: { userId: string }) {
 
         // Use bracket notation to bypass the "Property does not exist" error
         if (!dbResult.success) {
-          // TypeScript will allow this because we aren't using dot notation
           const errorMessage =
-            (dbResult as any).error || "Database synchronization failed";
+            "error" in dbResult && typeof dbResult.error === "string"
+              ? dbResult.error
+              : "Database synchronization failed";
           throw new Error(errorMessage);
         }
 
@@ -102,13 +105,15 @@ export default function UploadClient({ userId }: { userId: string }) {
           ),
         );
         toast.success(`${file.name} uploaded successfully!`);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Upload process error:", error);
         setFiles((prev) =>
           prev.map((f) => (f.id === id ? { ...f, status: "error" } : f)),
         );
         // Show the actual error message from the server if available
-        toast.error(error.message || `Failed to upload ${file.name}`);
+        const message =
+          error instanceof Error ? error.message : `Failed to upload ${file.name}`;
+        toast.error(message);
       }
     },
     [userId],

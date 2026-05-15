@@ -32,14 +32,9 @@ const buildTelegramHref = (fileName: string, shareLink: string) => {
 
 export function ShareButton({ fileName = "CloudVault file", shareLink }: ShareButtonProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [supportsNativeShare, setSupportsNativeShare] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    setSupportsNativeShare(
-      typeof navigator !== "undefined" && typeof navigator.share === "function"
-    );
-  }, []);
+  const supportsNativeShare =
+    typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   useEffect(() => {
     if (!menuOpen) return;

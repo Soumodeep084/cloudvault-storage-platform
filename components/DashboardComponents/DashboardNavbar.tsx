@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  Search,
-  Bell,
-  Moon,
-  Sun,
-  LogOut,
-  User as UserIcon,
-  Settings,
-} from "lucide-react";
+import { Search, Bell, Moon, Sun, LogOut, Settings } from "lucide-react";
 import { useTheme } from "next-themes"; // Better to use next-themes standard
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";

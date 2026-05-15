@@ -126,7 +126,7 @@ export default function VerifyEmailClient({
       } else {
         toast.error(result.message || "Failed to send verification email");
       }
-    } catch (error) {
+    } catch {
       toast.error("Network error. Please try again.");
     } finally {
       setLoading(false);

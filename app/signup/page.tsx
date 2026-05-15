@@ -50,7 +50,7 @@ export default function SignupPage() {
           toast.error(result.message || "Failed to create account");
         }
       }
-    } catch (error) {
+    } catch {
       toast.error("An error occurred. Please try again.");
     } finally {
       setLoading(false);

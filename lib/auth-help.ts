@@ -62,6 +62,7 @@ export async function getSessionUser() {
             email: true,
             role: true,
             isVerified: true,
+            deleted: true,
           },
         },
       },
@@ -77,8 +78,14 @@ export async function getSessionUser() {
       return null;
     }
 
+    if (session.user.deleted) {
+      await db.session.deleteMany({ where: { userId: session.userId } });
+      cookieStore.delete("auth_token");
+      return null;
+    }
+
     return session.user;
-  } catch (error) {
+  } catch {
     // If token is expired or invalid, jwt.verify throws an error
     return null;
   }

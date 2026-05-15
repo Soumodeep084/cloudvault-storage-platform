@@ -14,6 +14,7 @@ enum Role {
 enum TokenType {
   VERIFY_EMAIL
   RESET_PASSWORD
+  ACCOUNT_DELETE_OTP
 }
 
 enum ActivityAction {
@@ -30,6 +31,8 @@ model User {
   name       String?
   role       Role    @default(USER)
   isVerified Boolean @default(false)
+  deleted    Boolean @default(false)
+  deletionScheduledAt DateTime? @map("deletion_scheduled_at")
   // emailNotifications Boolean @default(true)
   // twoFactorEnabled   Boolean @default(false)
 

@@ -20,7 +20,7 @@ export default function NotFound() {
           </h1>
           <h2 className="text-2xl font-bold text-slate-800">File Not Found</h2>
           <p className="max-w-75 mx-auto text-slate-500 text-sm font-medium">
-            The page you are looking for doesn't exist or has been moved to
+            The page you are looking for doesn&apos;t exist or has been moved to
             another vault.
           </p>
         </div>
