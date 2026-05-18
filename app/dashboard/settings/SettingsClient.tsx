@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 // import { Switch } from "@/components/ui/switch";
 // import { Separator } from "@/components/ui/separator";
-import { updateProfileAction } from "@/app/actions/profileActions";
+import { changePasswordAction, updateProfileAction } from "@/app/actions/profileActions";
 import {
   deleteAccountAction,
   requestAccountDeletionOtpAction,
@@ -61,7 +61,11 @@ export default function SettingsClient({ user }: { user: SettingsUser }) {
   // const [emailNotifications, setEmailNotifications] = useState(user.emailNotifications);
   // const [twoFactorEnabled, setTwoFactorEnabled] = useState(user.twoFactorEnabled);
   const [isSavingProfile, startProfileTransition] = useTransition();
+  const [isSavingPassword, startPasswordTransition] = useTransition();
   // const [isSavingPrefs, startPrefsTransition] = useTransition();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const router = useRouter();
 
   const storageUsed = Number(user.storageUsed || 0);
@@ -123,6 +127,36 @@ export default function SettingsClient({ user }: { user: SettingsUser }) {
         return;
       }
       toast.success("Profile updated");
+    });
+  };
+
+  const handlePasswordSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    startPasswordTransition(async () => {
+      const result = await changePasswordAction({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+
+      if (!result.success) {
+        if (result.errors) {
+          const firstError = Object.values(result.errors)[0]?.[0];
+          toast.error(firstError || result.message || "Failed to update password");
+          return;
+        }
+        toast.error(result.message || "Failed to update password");
+        return;
+      }
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success("Password updated. Please sign in again.");
+      if (typeof window !== "undefined") {
+        window.location.replace("/login");
+      }
     });
   };
 
@@ -431,6 +465,59 @@ export default function SettingsClient({ user }: { user: SettingsUser }) {
               disabled={isSavingProfile}
             >
               {isSavingProfile ? "Saving..." : "Save changes"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm border-slate-200">
+        <CardHeader>
+          <CardTitle className="text-lg">Change Password</CardTitle>
+          <CardDescription>Update your password for this account</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-4" onSubmit={handlePasswordSubmit}>
+            <div className="space-y-2">
+              <Label className="text-slate-600" htmlFor="currentPassword">
+                Current password
+              </Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                className="focus-visible:ring-primary"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-600" htmlFor="newPassword">
+                New password
+              </Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                className="focus-visible:ring-primary"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-600" htmlFor="confirmPassword">
+                Confirm new password
+              </Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                className="focus-visible:ring-primary"
+                required
+              />
+            </div>
+            <Button type="submit" className="font-semibold" disabled={isSavingPassword}>
+              {isSavingPassword ? "Updating..." : "Update password"}
             </Button>
           </form>
         </CardContent>
