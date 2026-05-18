@@ -66,17 +66,13 @@ export function AppSidebar({ user }: AppSidebarProps) {
     <Sidebar collapsible="icon">
       <SidebarContent className="bg-white">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 py-6">
-            {!collapsed ? (
-              <div className="flex items-center gap-2">
-                <Cloud className="h-6 w-6 text-primary" />
-                <span className="font-bold text-lg text-foreground text-nowrap">
-                  CloudVault
-                </span>
-              </div>
-            ) : (
-              <Cloud className="h-6 w-6 text-primary mx-auto" />
-            )}
+          <SidebarGroupLabel className="px-3 py-6 group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:justify-center">
+            <div className="flex items-center gap-2">
+              <Cloud className="h-6 w-6 text-primary" />
+              <span className="font-bold text-lg text-foreground text-nowrap group-data-[collapsible=icon]:hidden">
+                CloudVault
+              </span>
+            </div>
           </SidebarGroupLabel>
 
           <SidebarGroupContent>
