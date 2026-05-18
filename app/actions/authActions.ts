@@ -1,14 +1,20 @@
 "use server";
 
 import { db } from "@/lib/prisma";
-import { loginSchema, signupSchema } from "@/lib/validations/auth";
+import { TokenType } from "@prisma/client";
+import { forgotPasswordSchema, loginSchema, resetPasswordSchema, signupSchema } from "@/lib/validations/auth";
 import { comparePasswords, createSession, getSessionUser, hashPassword } from "@/lib/auth-help";
-import { sendVerificationEmail } from "@/lib/email";
+import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import {
   issueEmailVerificationToken,
   VERIFY_EMAIL_TTL_MINUTES,
   VERIFY_EMAIL_RESEND_COOLDOWN_MINUTES,
 } from "@/lib/email-verification";
+import {
+  issuePasswordResetToken,
+  RESET_PASSWORD_TTL_MINUTES,
+  validatePasswordResetToken,
+} from "@/lib/password-reset";
 import { ActionResponse } from "@/types/auth";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -16,6 +22,8 @@ import { z } from "zod";
 
 type SignupInput = z.infer<typeof signupSchema>;
 type LoginInput = z.infer<typeof loginSchema>;
+type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 function getAppBaseUrl() {
   return (
@@ -225,6 +233,112 @@ export async function resendVerificationEmailAction(): Promise<ActionResponse> {
   } catch (error) {
     console.error("RESEND_VERIFY_EMAIL_ERROR:", error);
     return { success: false, message: "Failed to send email", status: 500 };
+  }
+}
+
+// Status Codes: 200 (OK), 400 (Bad Request)
+export async function requestPasswordResetAction(
+  values: ForgotPasswordInput,
+): Promise<ActionResponse> {
+  try {
+    const validated = forgotPasswordSchema.safeParse(values);
+    if (!validated.success) {
+      return { success: false, message: "Invalid input", status: 400 };
+    }
+
+    const normalizedEmail = validated.data.email.toLowerCase().trim();
+
+    const user = await db.user.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: "insensitive",
+        },
+      },
+    });
+
+    if (!user || user.deleted) {
+      return {
+        success: false,
+        message: "This email is not registered.",
+        status: 404,
+      };
+    }
+
+    const tokenResult = await issuePasswordResetToken(user.id);
+    if (tokenResult.allowed && tokenResult.token) {
+      const resetUrl = `${getAppBaseUrl()}/reset-password?token=${tokenResult.token}`;
+      await sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        resetUrl,
+        expiresInMinutes: RESET_PASSWORD_TTL_MINUTES,
+      });
+    }
+
+    return {
+      success: true,
+      message: "Check your email for a reset link.",
+      status: 200,
+    };
+  } catch (error) {
+    console.error("REQUEST_PASSWORD_RESET_ERROR:", error);
+    return { success: false, message: "Failed to send reset email", status: 500 };
+  }
+}
+
+// Status Codes: 200 (OK), 400 (Bad Request), 403 (Forbidden), 410 (Gone)
+export async function resetPasswordAction(values: ResetPasswordInput): Promise<ActionResponse> {
+  try {
+    const validated = resetPasswordSchema.safeParse(values);
+    if (!validated.success) {
+      return {
+        success: false,
+        message: "Validation failed",
+        status: 400,
+        errors: validated.error.flatten().fieldErrors,
+      };
+    }
+
+    const { token, password } = validated.data;
+    const tokenResult = await validatePasswordResetToken(token);
+
+    if (tokenResult.status === "not_found") {
+      return { success: false, message: "Invalid reset link", status: 400 };
+    }
+
+    if (tokenResult.status === "expired") {
+      return { success: false, message: "Reset link expired", status: 410 };
+    }
+
+    const user = await db.user.findUnique({
+      where: { id: tokenResult.userId },
+      select: { id: true, deleted: true },
+    });
+
+    if (!user || user.deleted) {
+      return { success: false, message: "Account unavailable", status: 403 };
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    await db.$transaction([
+      db.user.update({
+        where: { id: user.id },
+        data: { password: hashedPassword },
+      }),
+      db.token.deleteMany({
+        where: { userId: user.id, type: TokenType.RESET_PASSWORD },
+      }),
+      db.session.deleteMany({
+        where: { userId: user.id },
+      }),
+    ]);
+
+    return { success: true, message: "Password reset successful", status: 200 };
+  } catch (error) {
+    console.error("RESET_PASSWORD_ERROR:", error);
+    return { success: false, message: "Failed to reset password", status: 500 };
   }
 }
 

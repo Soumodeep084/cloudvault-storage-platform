@@ -7,6 +7,13 @@ type SendVerificationEmailInput = {
   expiresInMinutes: number;
 };
 
+type SendPasswordResetEmailInput = {
+  to: string;
+  name?: string | null;
+  resetUrl: string;
+  expiresInMinutes: number;
+};
+
 type SendDeletionOtpEmailInput = {
   to: string;
   name?: string | null;
@@ -74,6 +81,43 @@ function buildVerificationEmailText(verifyUrl: string, expiresInMinutes: number)
     verifyUrl,
     "",
     "If you did not create this account, you can safely ignore this message.",
+    signature,
+  ].join("\n");
+}
+
+function buildPasswordResetEmailHtml(
+  name: string | null | undefined,
+  resetUrl: string,
+  expiresInMinutes: number,
+) {
+  const greeting = name ? `Hi ${name},` : "Hi,";
+  const signature = process.env.EMAIL_SIGNATURE || "- CloudVault Team";
+  return `
+    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
+      <p>${greeting}</p>
+      <p>We received a request to reset your CloudVault password.</p>
+      <p>
+        <a href="${resetUrl}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; padding: 10px 16px; border-radius: 6px;">
+          Reset Password
+        </a>
+      </p>
+      <p>This reset link expires in ${expiresInMinutes} minutes.</p>
+      <p>If you did not request a password reset, you can safely ignore this email.</p>
+      <p style="color: #b91c1c; font-weight: 600;">This is a system-generated email. Please do not reply.</p>
+      <p>${signature}</p>
+    </div>
+  `;
+}
+
+function buildPasswordResetEmailText(resetUrl: string, expiresInMinutes: number) {
+  const signature = process.env.EMAIL_SIGNATURE || "- CloudVault Team";
+  return [
+    "We received a request to reset your CloudVault password.",
+    "",
+    `Reset your password using this link (expires in ${expiresInMinutes} minutes):`,
+    resetUrl,
+    "",
+    "If you did not request a password reset, you can safely ignore this email.",
     signature,
   ].join("\n");
 }
@@ -196,6 +240,24 @@ export async function sendVerificationEmail({
     subject: "Verify your CloudVault email address",
     text: buildVerificationEmailText(verifyUrl, expiresInMinutes),
     html: buildVerificationEmailHtml(name, verifyUrl, expiresInMinutes),
+  });
+}
+
+export async function sendPasswordResetEmail({
+  to,
+  name,
+  resetUrl,
+  expiresInMinutes,
+}: SendPasswordResetEmailInput) {
+  const transporter = getTransporter();
+  const from = process.env.EMAIL_FROM || process.env.GMAIL_USER || "CloudVault <no-reply@cloudvault.app>";
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: "Reset your CloudVault password",
+    text: buildPasswordResetEmailText(resetUrl, expiresInMinutes),
+    html: buildPasswordResetEmailHtml(name, resetUrl, expiresInMinutes),
   });
 }
 
