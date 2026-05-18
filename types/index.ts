@@ -44,6 +44,15 @@ export interface FileItem {
     isDeleted?: boolean;
     createdAt?: string | Date;
     updatedAt?: string | Date;
+
+    versions?: Array<{
+        id: string;
+        version: number;
+        size: number;
+        createdAt: string | Date;
+        createdBy: string;
+        changes: string;
+    }>;
 }
 
 export interface AdminStats {

@@ -113,13 +113,15 @@ export default function VerifyEmailClient({
       const result = await resendVerificationEmailAction();
       if (result.success) {
         toast.success("Verification email sent");
-        const nextCooldown = result.data?.retryAfterSeconds ?? null;
+        const resultData = result.data as { retryAfterSeconds?: number } | undefined;
+        const nextCooldown = resultData?.retryAfterSeconds ?? null;
         if (nextCooldown && nextCooldown > 0) {
           startCooldown(nextCooldown);
         }
       } else if (result.status === 429) {
         toast.message("Please wait before requesting another email.");
-        const retryAfter = result.data?.retryAfterSeconds ?? null;
+        const resultData = result.data as { retryAfterSeconds?: number } | undefined;
+        const retryAfter = resultData?.retryAfterSeconds ?? null;
         if (retryAfter && retryAfter > 0) {
           startCooldown(retryAfter);
         }

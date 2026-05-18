@@ -36,8 +36,9 @@ export default function LoginPage() {
         router.refresh();
       } else {
         switch (result.status) {
-          case 403:
-            if (result.data?.deleted) {
+          case 403: {
+            const resultData = result.data as { deleted?: boolean } | undefined;
+            if (resultData?.deleted) {
               toast.error("Account scheduled for deletion. Contact support to recover.");
               router.push("/account-deleted");
               break;
@@ -45,6 +46,7 @@ export default function LoginPage() {
             toast.message("Please verify your email to continue.");
             router.push("/verify-email");
             break;
+          }
           case 401:
             toast.error("Invalid email or password");
             break;
