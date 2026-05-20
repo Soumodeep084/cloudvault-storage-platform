@@ -332,3 +332,68 @@ export async function revokeShareLink(fileId: string) {
         return { success: false, error: "Unable to revoke share link" };
     }
 }
+
+export async function renameFileAction(fileId: string, nextName: string) {
+    try {
+        const user = await getSessionUser();
+        if (!user) {
+            return { success: false, error: "Not authenticated" };
+        }
+
+        const rawName = nextName.trim();
+        if (!rawName) {
+            return { success: false, error: "File name is required" };
+        }
+
+        const file = await db.file.findFirst({
+            where: { id: fileId, userId: user.id, isDeleted: false },
+            select: { id: true, fileName: true },
+        });
+
+        if (!file) {
+            return { success: false, error: "File not found" };
+        }
+
+        const { baseName: nextBaseName } = splitFileName(rawName);
+        if (!nextBaseName.trim()) {
+            return { success: false, error: "File name is required" };
+        }
+
+        const { extension } = splitFileName(file.fileName);
+        const normalizedName = `${nextBaseName.trim()}${extension}`;
+
+        if (file.fileName === normalizedName) {
+            return { success: true, fileName: file.fileName };
+        }
+
+        const duplicate = await db.file.findFirst({
+            where: {
+                userId: user.id,
+                isDeleted: false,
+                fileName: { equals: normalizedName, mode: "insensitive" },
+                NOT: { id: fileId },
+            },
+            select: { id: true },
+        });
+
+        if (duplicate) {
+            return { success: false, error: "A file with this name already exists." };
+        }
+
+        const updated = await db.file.update({
+            where: { id: fileId },
+            data: { fileName: normalizedName },
+            select: { fileName: true },
+        });
+
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/files");
+        revalidatePath("/dashboard/shared");
+        revalidatePath("/dashboard/history");
+
+        return { success: true, fileName: updated.fileName };
+    } catch (error) {
+        console.error("Rename file error:", error);
+        return { success: false, error: "Unable to rename file" };
+    }
+}

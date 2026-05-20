@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   AlertTriangle,
   Link2Off,
+  Pencil,
 } from "lucide-react";
 import { formatFileSize, formatDate } from "@/lib/utils";
 import { FileIcon } from "@/components/DashboardComponents/FileIcon"; // Ensure this exists
@@ -33,6 +34,7 @@ import {  FileItem } from "@/types";
 import {
   createShareLink,
   deleteFileAction,
+  renameFileAction,
   revokeShareLink,
 } from "@/app/actions/fileActions";
 import {
@@ -42,6 +44,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { normalizeFileType } from "@/lib/helper";
 
@@ -88,6 +99,18 @@ function getDisplayDate(file: FileItem) {
   );
 }
 
+function splitFileName(fileName: string) {
+  const lastDotIndex = fileName.lastIndexOf(".");
+  if (lastDotIndex <= 0) {
+    return { baseName: fileName, extension: "" };
+  }
+
+  return {
+    baseName: fileName.slice(0, lastDotIndex),
+    extension: fileName.slice(lastDotIndex),
+  };
+}
+
 function isShared(file: FileItem) {
   return Boolean(file.shared ?? file.shareLink);
 }
@@ -113,6 +136,12 @@ export default function FilesClient({
   const [deleteCode, setDeleteCode] = useState("");
   const [deleteInput, setDeleteInput] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [renameFile, setRenameFile] = useState<FileItem | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameExtension, setRenameExtension] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameAlertOpen, setRenameAlertOpen] = useState(false);
+  const [renameAlertMessage, setRenameAlertMessage] = useState("");
 
   const handleDownload = (file: FileItem) => {
     if (!file.id) {
@@ -142,6 +171,20 @@ export default function FilesClient({
     setDeleteStep("confirm");
     setDeleteCode("");
     setDeleteInput("");
+  };
+
+  const openRenameDialog = (file: FileItem) => {
+    const { baseName, extension } = splitFileName(getDisplayName(file));
+    setRenameFile(file);
+    setRenameValue(baseName);
+    setRenameExtension(extension);
+  };
+
+  const resetRenameDialog = () => {
+    if (isRenaming) return;
+    setRenameFile(null);
+    setRenameValue("");
+    setRenameExtension("");
   };
 
   const startDeleteVerification = () => {
@@ -186,6 +229,55 @@ export default function FilesClient({
       return;
     }
     setShareFile(file);
+  };
+
+  const handleRename = async () => {
+    if (!renameFile?.id) {
+      toast.error("File id not found");
+      return;
+    }
+
+    const nextName = renameValue.trim();
+    if (!nextName) {
+      toast.error("File name is required");
+      return;
+    }
+
+    const composedName = `${nextName}${renameExtension}`;
+
+    setIsRenaming(true);
+    const result = await renameFileAction(renameFile.id, composedName);
+    setIsRenaming(false);
+
+    if (!result.success) {
+      const errorMessage =
+        "error" in result && typeof result.error === "string"
+          ? result.error
+          : "Unable to rename file";
+      if (errorMessage === "A file with this name already exists.") {
+        setRenameAlertMessage(errorMessage);
+        setRenameAlertOpen(true);
+      } else {
+        toast.error(errorMessage);
+      }
+      return;
+    }
+
+    const updatedName =
+      "fileName" in result && typeof result.fileName === "string"
+        ? result.fileName
+        : composedName;
+
+    setFiles((prev) =>
+      prev.map((file) =>
+        file.id === renameFile.id
+          ? { ...file, fileName: updatedName, name: updatedName }
+          : file,
+      ),
+    );
+
+    resetRenameDialog();
+    toast.success("File renamed");
   };
 
   const handleCreateSecureShare = async (options: {
@@ -370,6 +462,11 @@ export default function FilesClient({
                           >
                             <Download className="mr-2 h-4 w-4" /> Download
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => openRenameDialog(file)}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" /> Rename
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleShare(file)}>
                             <Share2 className="mr-2 h-4 w-4" />
                             {isShareExpired(file)
@@ -416,6 +513,87 @@ export default function FilesClient({
         onCreateSecureLink={handleCreateSecureShare}
         isCreating={isCreatingShare}
       />
+
+      <Dialog
+        open={!!renameFile}
+        onOpenChange={(open) => (!open ? resetRenameDialog() : undefined)}
+      >
+        <DialogContent
+          className="sm:max-w-lg p-0 overflow-hidden"
+          showCloseButton={!isRenaming}
+        >
+          <div className="border-b bg-linear-to-b from-slate-50 to-white px-6 py-5">
+            <DialogHeader className="gap-3">
+              <DialogTitle className="text-base font-semibold text-slate-900">
+                Rename file
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed text-slate-600">
+                Enter a new name for this file.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="px-6 py-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Input
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                placeholder="New file name"
+                autoComplete="off"
+                disabled={isRenaming}
+                className="h-10"
+              />
+              {renameExtension && (
+                <span className="text-sm text-muted-foreground">
+                  {renameExtension}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t bg-slate-50 px-6 py-4">
+            <Button
+              variant="outline"
+              onClick={resetRenameDialog}
+              disabled={isRenaming}
+              className="h-9"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRename}
+              disabled={isRenaming}
+              className="h-9 bg-slate-900 text-white hover:bg-slate-800"
+            >
+              {isRenaming ? "Renaming..." : "Rename"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={renameAlertOpen}
+        onOpenChange={(open) => (!open ? setRenameAlertOpen(false) : undefined)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rename blocked</AlertDialogTitle>
+            <AlertDialogDescription>
+              {renameAlertMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => {
+                setRenameAlertOpen(false);
+                resetRenameDialog();
+              }}
+            >
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog
         open={!!deleteFile}
