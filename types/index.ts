@@ -24,7 +24,6 @@ export type FileCategory =
 
 export interface FileItem {
     id: string;
-    // UI-oriented shape
     name?: string;
     type?: FileCategory;
     size?: number | null;
@@ -42,6 +41,8 @@ export interface FileItem {
     fileSize?: number | null;
     fileType?: string | null;
     isDeleted?: boolean;
+    isTrashed?: boolean;
+    folderId?: string | null;
     createdAt?: string | Date;
     updatedAt?: string | Date;
 
@@ -53,6 +54,18 @@ export interface FileItem {
         createdBy: string;
         changes: string;
     }>;
+}
+
+export interface FolderItem {
+    id: string;
+    name: string;
+    parentId?: string | null;
+    shared?: boolean;
+    shareLink?: string;
+    shareExpiresAt?: string | Date | null;
+    isTrashed?: boolean;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
 }
 
 export interface AdminStats {

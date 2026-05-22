@@ -1,11 +1,9 @@
 "use server"
 
 import { db } from "@/lib/prisma";
-import { supabaseAdmin } from "@/lib/supabase";
 import { getSessionUser } from "@/lib/auth-help";
 import { revalidatePath } from "next/cache";
 import { ActivityAction, type Prisma } from "@prisma/client";
-import { extractStoragePathFromUrl } from "@/lib/storage-path";
 import bcrypt from "bcryptjs";
 
 async function logActivity(
@@ -58,18 +56,30 @@ function getUniqueFileName(originalName: string, existingNames: string[]) {
     return `${normalizedBase} (${counter})${extension}`;
 }
 
-// Explicitly define the interface to fix the 'userId' error
+
 export async function recordFileUpload(data: {
     userId: string;
     fileName: string;
     fileUrl: string;
     fileSize: number;
     fileType: string;
+    folderId?: string | null;
 }) {
     try {
+        if (data.folderId) {
+            const folderExists = await db.folder.findFirst({
+                where: { id: data.folderId, userId: data.userId, isDeleted: false, isTrashed: false },
+                select: { id: true },
+            });
+
+            if (!folderExists) {
+                return { success: false, error: "Folder not found" };
+            }
+        }
+
         const result = await db.$transaction(async (tx) => {
             const existingNames = await tx.file.findMany({
-                where: { userId: data.userId, isDeleted: false },
+                where: { userId: data.userId, isDeleted: false, isTrashed: false },
                 select: { fileName: true },
             });
 
@@ -81,6 +91,7 @@ export async function recordFileUpload(data: {
             const newFile = await tx.file.create({
                 data: {
                     userId: data.userId,
+                    folderId: data.folderId ?? null,
                     fileName: uniqueName,
                     fileUrl: data.fileUrl,
                     fileSize: data.fileSize,
@@ -154,7 +165,7 @@ export async function createShareLink(
         const passwordHash = await bcrypt.hash(normalizedPassword, 10);
 
         const file = await db.file.findFirst({
-            where: { id: fileId, userId: user.id, isDeleted: false },
+            where: { id: fileId, userId: user.id, isDeleted: false, isTrashed: false },
             include: { shares: true },
         });
 
@@ -224,29 +235,12 @@ export async function deleteFileAction(fileId: string) {
         }
 
         const file = await db.file.findFirst({
-            where: { id: fileId, userId: user.id, isDeleted: false },
-            select: { id: true, fileUrl: true, fileSize: true, fileName: true },
+            where: { id: fileId, userId: user.id, isDeleted: false, isTrashed: false },
+            select: { id: true, fileName: true },
         });
 
         if (!file) {
             return { success: false, error: "File not found" };
-        }
-
-        const storagePath = extractStoragePathFromUrl(file.fileUrl);
-        if (!storagePath) {
-            return { success: false, error: "Invalid storage URL for file" };
-        }
-
-        if (!supabaseAdmin) {
-            return { success: false, error: "Supabase admin client is not configured" };
-        }
-
-        const { error: storageError } = await supabaseAdmin.storage
-            .from("files")
-            .remove([storagePath]);
-
-        if (storageError) {
-            return { success: false, error: storageError.message || "Failed to delete file from storage" };
         }
 
         await db.$transaction(async (tx) => {
@@ -258,18 +252,15 @@ export async function deleteFileAction(fileId: string) {
                     metadata: {
                         fileId: file.id,
                         fileName: file.fileName,
+                        trashed: true,
                     },
                 },
             });
 
-            await tx.file.delete({ where: { id: file.id } });
-
-            if (file.fileSize) {
-                await tx.user.update({
-                    where: { id: user.id },
-                    data: { storageUsed: { decrement: BigInt(file.fileSize) } },
-                });
-            }
+            await tx.file.update({
+                where: { id: file.id },
+                data: { isTrashed: true },
+            });
         });
 
         revalidatePath("/dashboard");
@@ -295,6 +286,7 @@ export async function revokeShareLink(fileId: string) {
                 id: fileId,
                 userId: user.id,
                 isDeleted: false,
+                isTrashed: false,
             },
             select: {
                 id: true,
@@ -346,7 +338,7 @@ export async function renameFileAction(fileId: string, nextName: string) {
         }
 
         const file = await db.file.findFirst({
-            where: { id: fileId, userId: user.id, isDeleted: false },
+            where: { id: fileId, userId: user.id, isDeleted: false, isTrashed: false },
             select: { id: true, fileName: true },
         });
 
@@ -370,6 +362,7 @@ export async function renameFileAction(fileId: string, nextName: string) {
             where: {
                 userId: user.id,
                 isDeleted: false,
+                isTrashed: false,
                 fileName: { equals: normalizedName, mode: "insensitive" },
                 NOT: { id: fileId },
             },
@@ -395,5 +388,46 @@ export async function renameFileAction(fileId: string, nextName: string) {
     } catch (error) {
         console.error("Rename file error:", error);
         return { success: false, error: "Unable to rename file" };
+    }
+}
+
+export async function moveFileAction(fileId: string, folderId: string | null) {
+    try {
+        const user = await getSessionUser();
+        if (!user) {
+            return { success: false, error: "Not authenticated" };
+        }
+
+        const file = await db.file.findFirst({
+            where: { id: fileId, userId: user.id, isDeleted: false, isTrashed: false },
+            select: { id: true },
+        });
+
+        if (!file) {
+            return { success: false, error: "File not found" };
+        }
+
+        if (folderId) {
+            const folderExists = await db.folder.findFirst({
+                where: { id: folderId, userId: user.id, isDeleted: false, isTrashed: false },
+                select: { id: true },
+            });
+
+            if (!folderExists) {
+                return { success: false, error: "Folder not found" };
+            }
+        }
+
+        await db.file.update({
+            where: { id: fileId },
+            data: { folderId },
+        });
+
+        revalidatePath("/dashboard/files");
+
+        return { success: true };
+    } catch (error) {
+        console.error("Move file error:", error);
+        return { success: false, error: "Unable to move file" };
     }
 }
