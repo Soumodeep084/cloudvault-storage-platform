@@ -22,6 +22,7 @@ export type FileRowProps = {
   onShare: (file: FileItem) => void;
   onStopSharing: (file: FileItem) => void;
   onDelete: (file: FileItem) => void;
+  onPreview: (file: FileItem) => void;
   onDragStart: (event: React.DragEvent<HTMLTableRowElement>, file: FileItem) => void;
 };
 
@@ -61,6 +62,7 @@ export function FileRow({
   onShare,
   onStopSharing,
   onDelete,
+  onPreview,
   onDragStart,
 }: FileRowProps) {
   const expired = isShareExpired(file);
@@ -72,15 +74,19 @@ export function FileRow({
       draggable
       onDragStart={(event) => onDragStart(event, file)}
     >
-      <TableCell className="px-4 py-3 align-middle">
+      <TableCell className="px-3 py-3 align-middle sm:px-4">
         <div className="flex items-center gap-3">
           <div>
             <FileIcon type={normalizeFileType(file)} />
           </div>
           <div className="min-w-0">
-            <p className="font-medium truncate max-w-56 sm:max-w-80">
+            <button
+              type="button"
+              onClick={() => onPreview(file)}
+              className="max-w-40 sm:max-w-56 md:max-w-80 text-left font-medium truncate hover:underline"
+            >
               {getDisplayName(file)}
-            </p>
+            </button>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground sm:hidden">
               <span>{formatFileSize(getDisplaySize(file))}</span>
               <span className="h-1 w-1 rounded-full bg-muted-foreground/50" />
@@ -121,7 +127,7 @@ export function FileRow({
           <Badge variant="outline">Private</Badge>
         )}
       </TableCell>
-      <TableCell className="pr-4 text-right align-middle">
+      <TableCell className="w-12 pr-2 text-right align-middle sm:pr-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="subtle" size="icon" className="h-8 w-8">

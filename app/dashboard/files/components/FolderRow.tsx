@@ -53,7 +53,7 @@ export function FolderRow({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <TableCell className="px-4 py-3 align-middle">
+      <TableCell className="px-3 py-3 align-middle sm:px-4">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-muted/20 flex items-center justify-center shrink-0">
             <Folder className="h-5 w-5 text-primary" />
@@ -63,7 +63,7 @@ export function FolderRow({
             onClick={() => onOpen(folder.id)}
             className="min-w-0 text-left cursor-pointer"
           >
-            <p className="font-medium truncate max-w-56 sm:max-w-80 hover:underline">
+            <p className="font-medium truncate max-w-40 sm:max-w-56 md:max-w-80 hover:underline">
               {folder.name}
             </p>
           </button>
@@ -91,7 +91,7 @@ export function FolderRow({
           <Badge variant="outline">Private</Badge>
         )}
       </TableCell>
-      <TableCell className="pr-4 text-right align-middle">
+      <TableCell className="w-12 pr-2 text-right align-middle sm:pr-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="subtle" size="icon" className="h-8 w-8">

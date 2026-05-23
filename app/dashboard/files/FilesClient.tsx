@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useCallback, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import type { FileItem, FolderItem } from "@/types";
 import { FolderRow } from "./components/FolderRow";
 import { FileRow } from "./components/FileRow";
 import { FilesDialogs } from "./components/FilesDialogs";
+import { FilePreviewDialog } from "./components/preview/FilePreviewDialog";
 import { useFilesManager, type FolderSummary } from "./hooks/useFilesManager";
 
 function getFolderStatus(folder: FolderItem) {
@@ -58,6 +59,14 @@ export default function FilesClient({
 
   const parentFolderId =
     breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 2].id : null;
+
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+  const handlePreviewOpen = useCallback((file: FileItem) => {
+    setPreviewFile(file);
+  }, []);
+  const handlePreviewOpenChange = useCallback((open: boolean) => {
+    if (!open) setPreviewFile(null);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -155,11 +164,11 @@ export default function FilesClient({
             <Table className="bg-white">
               <TableHeader className="bg-muted/60">
                 <TableRow className="hover:bg-muted/60">
-                  <TableHead className="font-semibold text-foreground px-4 py-3">Name</TableHead>
+                  <TableHead className="font-semibold text-foreground px-3 py-3 sm:px-4">Name</TableHead>
                   <TableHead className="hidden sm:table-cell font-semibold text-foreground">Size</TableHead>
                   <TableHead className="hidden md:table-cell font-semibold text-foreground">Modified</TableHead>
                   <TableHead className="hidden md:table-cell font-semibold text-foreground">Status</TableHead>
-                  <TableHead className="font-semibold text-foreground text-right pr-4">Actions</TableHead>
+                  <TableHead className="w-12 font-semibold text-foreground text-right pr-2 sm:pr-4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -207,6 +216,7 @@ export default function FilesClient({
                     onShare={manager.handleShare}
                     onStopSharing={manager.handleStopSharing}
                     onDelete={manager.openDeleteDialog}
+                    onPreview={handlePreviewOpen}
                     onDragStart={manager.handleFileDragStart}
                   />
                 ))}
@@ -264,6 +274,13 @@ export default function FilesClient({
         renameAlertOpen={manager.renameAlertOpen}
         renameAlertMessage={manager.renameAlertMessage}
         onRenameAlertClose={() => manager.setRenameAlertOpen(false)}
+      />
+
+      <FilePreviewDialog
+        file={previewFile}
+        open={!!previewFile}
+        onOpenChange={handlePreviewOpenChange}
+        onDownload={manager.handleDownload}
       />
     </div>
   );
