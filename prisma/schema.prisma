@@ -89,6 +89,7 @@ model File {
   isDeleted Boolean @default(false)
   isTrashed Boolean @default(false)
 
+  trashedDate DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -109,6 +110,8 @@ model Folder {
   name      String
   isDeleted Boolean  @default(false)
   isTrashed Boolean  @default(false)
+  
+  trashedDate DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

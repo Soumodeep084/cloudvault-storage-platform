@@ -258,20 +258,23 @@ export async function deleteFolderAction(folderId: string) {
     const childrenMap = buildChildrenMap(allFolders);
     const folderIds = collectDescendants(folderId, childrenMap);
 
+    const trashedAt = new Date();
+
     await db.$transaction(async (tx) => {
       await tx.folder.updateMany({
         where: { id: { in: folderIds } },
-        data: { isTrashed: true },
+        data: { isTrashed: true, trashedDate: trashedAt },
       });
 
       await tx.file.updateMany({
         where: { userId: user.id, isDeleted: false, isTrashed: false, folderId: { in: folderIds } },
-        data: { isTrashed: true },
+        data: { isTrashed: true, trashedDate: trashedAt },
       });
     });
 
     revalidatePath("/dashboard/files");
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/trash");
 
     return { success: true, parentId: rootFolder.parentId ?? null };
   } catch (error) {

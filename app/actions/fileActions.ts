@@ -243,6 +243,8 @@ export async function deleteFileAction(fileId: string) {
             return { success: false, error: "File not found" };
         }
 
+        const trashedAt = new Date();
+
         await db.$transaction(async (tx) => {
             await tx.activity.create({
                 data: {
@@ -259,13 +261,14 @@ export async function deleteFileAction(fileId: string) {
 
             await tx.file.update({
                 where: { id: file.id },
-                data: { isTrashed: true },
+                data: { isTrashed: true, trashedDate: trashedAt },
             });
         });
 
         revalidatePath("/dashboard");
         revalidatePath("/dashboard/files");
         revalidatePath("/dashboard/history");
+        revalidatePath("/dashboard/trash");
 
         return { success: true };
     } catch (error) {

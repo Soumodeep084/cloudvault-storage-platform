@@ -42,6 +42,7 @@ export interface FileItem {
     fileType?: string | null;
     isDeleted?: boolean;
     isTrashed?: boolean;
+    trashedDate?: string | Date | null;
     folderId?: string | null;
     createdAt?: string | Date;
     updatedAt?: string | Date;
@@ -64,6 +65,7 @@ export interface FolderItem {
     shareLink?: string;
     shareExpiresAt?: string | Date | null;
     isTrashed?: boolean;
+    trashedDate?: string | Date | null;
     createdAt?: string | Date;
     updatedAt?: string | Date;
 }

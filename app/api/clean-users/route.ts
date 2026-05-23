@@ -8,8 +8,7 @@ import { extractStoragePathFromUrl } from "@/lib/storage-path";
 export async function GET() {
     try {
         console.log("=================================");
-        console.log("Cleanup cron started");
-        console.log("Current Time:", new Date().toISOString());
+        console.log("Clean-users cron started");
 
         if (!supabaseAdmin) {
             console.log("Supabase admin missing");
@@ -22,10 +21,7 @@ export async function GET() {
 
         const now = new Date();
 
-        /**
-         * STEP 1:
-         * Find users whose delete time has expired
-         */
+        // STEP 1:Find users whose delete time has expired
         const users = await db.user.findMany({
             where: {
                 deleted: true,
@@ -61,10 +57,7 @@ export async function GET() {
                 user.deletionScheduledAt
             );
 
-            /**
-             * STEP 2:
-             * Get all files of this user
-             */
+            // STEP 2: Get all files of this user
             const files = await db.file.findMany({
                 where: { userId: user.id },
                 select: {
@@ -75,10 +68,7 @@ export async function GET() {
 
             console.log("Files found:", files.length);
 
-            /**
-             * STEP 3:
-             * Delete files from Supabase Storage
-             */
+            // STEP 3: Delete files from Supabase Storage
             if (files.length > 0) {
                 const paths = files
                     .map((file) =>
@@ -109,10 +99,7 @@ export async function GET() {
                 }
             }
 
-            /**
-             * STEP 4:
-             * Delete user record
-             */
+            // STEP 4: Delete user record
             await db.user.delete({
                 where: { id: user.id },
             });
@@ -139,13 +126,6 @@ export async function GET() {
                 ? error.message
                 : "Something went wrong";
 
-        return NextResponse.json(
-            {
-                error: message,
-            },
-            {
-                status: 500,
-            }
-        );
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

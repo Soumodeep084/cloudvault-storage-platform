@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Shield,
   Cloud,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -44,6 +45,7 @@ const mainItems = [
   { title: "Upload", url: "/dashboard/upload", icon: Upload },
   { title: "Shared Files", url: "/dashboard/shared", icon: Share2 },
   { title: "Activity Feed", url: "/dashboard/history", icon: History },
+  { title: "Trash Items", url: "/dashboard/trash", icon: Trash2 },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
 

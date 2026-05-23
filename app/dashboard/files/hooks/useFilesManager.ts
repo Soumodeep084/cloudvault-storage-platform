@@ -63,9 +63,6 @@ export function useFilesManager({
     null,
   );
   const [deleteFile, setDeleteFile] = useState<FileItem | null>(null);
-  const [deleteStep, setDeleteStep] = useState<"confirm" | "verify">("confirm");
-  const [deleteCode, setDeleteCode] = useState("");
-  const [deleteInput, setDeleteInput] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [renameFile, setRenameFile] = useState<FileItem | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -261,37 +258,15 @@ export function useFilesManager({
   const resetDeleteDialog = useCallback(() => {
     if (isDeleting) return;
     setDeleteFile(null);
-    setDeleteStep("confirm");
-    setDeleteCode("");
-    setDeleteInput("");
   }, [isDeleting]);
 
   const openDeleteDialog = useCallback((file: FileItem) => {
     setDeleteFile(file);
-    setDeleteStep("confirm");
-    setDeleteCode("");
-    setDeleteInput("");
-  }, []);
-
-  const startDeleteVerification = useCallback(() => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "";
-    for (let i = 0; i < 8; i += 1) {
-      code += chars[Math.floor(Math.random() * chars.length)];
-    }
-    setDeleteStep("verify");
-    setDeleteCode(code);
-    setDeleteInput("");
   }, []);
 
   const handleDelete = useCallback(async () => {
     if (!deleteFile?.id) {
       toast.error("File id not found");
-      return;
-    }
-
-    if (deleteInput.trim().toUpperCase() !== deleteCode) {
-      toast.error("Confirmation code does not match");
       return;
     }
 
@@ -307,7 +282,7 @@ export function useFilesManager({
     setFiles((prev) => prev.filter((f) => f.id !== deleteFile.id));
     resetDeleteDialog();
     toast.success("Moved to trash");
-  }, [deleteCode, deleteFile, deleteInput, resetDeleteDialog]);
+  }, [deleteFile, resetDeleteDialog]);
 
   const handleShare = useCallback((file: FileItem) => {
     if (file.shareLink && file.shareExpiresAt) {
@@ -783,9 +758,6 @@ export function useFilesManager({
     isCreatingShare,
     isRevokingShareId,
     deleteFile,
-    deleteStep,
-    deleteCode,
-    deleteInput,
     isDeleting,
     renameFile,
     renameValue,
@@ -825,7 +797,6 @@ export function useFilesManager({
     handleCreateFolderOpenChange,
     resetDeleteDialog,
     openDeleteDialog,
-    startDeleteVerification,
     handleDelete,
     handleShare,
     handleRename,
@@ -839,7 +810,6 @@ export function useFilesManager({
     setCreateFolderParentId,
     setMoveTargetId,
     setDeleteFolder,
-    setDeleteInput,
     setRenameValue,
     setRenameFolderValue,
     setRenameAlertOpen,

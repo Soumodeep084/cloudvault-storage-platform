@@ -263,12 +263,7 @@ export default function FilesClient({
         onDeleteFolderSubmit={manager.handleDeleteFolder}
         isDeletingFolder={manager.isDeletingFolder}
         deleteFile={manager.deleteFile}
-        deleteStep={manager.deleteStep}
-        deleteCode={manager.deleteCode}
-        deleteInput={manager.deleteInput}
-        onDeleteInputChange={manager.setDeleteInput}
         onDeleteFileClose={manager.resetDeleteDialog}
-        onDeleteFileContinue={manager.startDeleteVerification}
         onDeleteFileSubmit={manager.handleDelete}
         isDeletingFile={manager.isDeleting}
         renameAlertOpen={manager.renameAlertOpen}

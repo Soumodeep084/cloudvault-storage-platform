@@ -64,12 +64,7 @@ export type FilesDialogsProps = {
   isDeletingFolder: boolean;
 
   deleteFile: FileItem | null;
-  deleteStep: "confirm" | "verify";
-  deleteCode: string;
-  deleteInput: string;
-  onDeleteInputChange: (value: string) => void;
   onDeleteFileClose: () => void;
-  onDeleteFileContinue: () => void;
   onDeleteFileSubmit: () => void;
   isDeletingFile: boolean;
 
@@ -113,12 +108,7 @@ export function FilesDialogs({
   onDeleteFolderSubmit,
   isDeletingFolder,
   deleteFile,
-  deleteStep,
-  deleteCode,
-  deleteInput,
-  onDeleteInputChange,
   onDeleteFileClose,
-  onDeleteFileContinue,
   onDeleteFileSubmit,
   isDeletingFile,
   renameAlertOpen,
@@ -297,45 +287,21 @@ export function FilesDialogs({
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" /> Move file to trash
             </AlertDialogTitle>
-            {deleteStep === "confirm" ? (
-              <AlertDialogDescription>
-                This moves the file to trash. Continue to verify.
-              </AlertDialogDescription>
-            ) : (
-              <AlertDialogDescription>
-                Please type <span className="font-semibold">{deleteCode}</span> to confirm.
-              </AlertDialogDescription>
-            )}
+            <AlertDialogDescription>
+              This moves the file to trash.
+            </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="py-4">
-            {deleteStep === "verify" && (
-              <Input
-                value={deleteInput}
-                onChange={(event) => onDeleteInputChange(event.target.value)}
-                placeholder="Enter confirmation code"
-              />
-            )}
-          </div>
           <AlertDialogFooter>
             <Button variant="outline" onClick={onDeleteFileClose}>
               Cancel
             </Button>
-            {deleteStep === "confirm" ? (
-              <AlertDialogAction
-                onClick={onDeleteFileContinue}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Continue
-              </AlertDialogAction>
-            ) : (
-              <AlertDialogAction
-                onClick={onDeleteFileSubmit}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                disabled={isDeletingFile}
-              >
-                {isDeletingFile ? "Deleting..." : "Move to Trash"}
-              </AlertDialogAction>
-            )}
+            <AlertDialogAction
+              onClick={onDeleteFileSubmit}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeletingFile}
+            >
+              {isDeletingFile ? "Deleting..." : "Move to Trash"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

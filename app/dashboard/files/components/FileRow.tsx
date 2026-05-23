@@ -162,7 +162,7 @@ export function FileRow({
               onClick={() => onDelete(file)}
               className="text-destructive focus:bg-destructive/10 focus:text-destructive"
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
+              <Trash2 className="mr-2 h-4 w-4" /> Move to Trash
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
