@@ -121,7 +121,7 @@ export default function FilesClient({
         </div>
       </div>
 
-      {parentFolderId && (
+      {manager.hasItems && parentFolderId && (
         <div
           onDragOver={manager.handleParentDragOver}
           onDragLeave={manager.handleParentDragLeave}
@@ -136,7 +136,7 @@ export default function FilesClient({
         </div>
       )}
 
-      {currentFolderId && (
+      {manager.hasItems && currentFolderId && (
         <div
           onDragOver={manager.handleRootDragOver}
           onDragLeave={manager.handleRootDragLeave}
