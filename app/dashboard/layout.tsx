@@ -5,6 +5,7 @@ import { DashboardNavbar } from "@/components/DashboardComponents/DashboardNavba
 import { getSessionUser } from "@/lib/auth-help";
 import { db } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { STORAGE_LIMIT_BYTES } from "@/lib/constants";
 
 export default async function DashboardLayout({
   children,
@@ -31,7 +32,7 @@ export default async function DashboardLayout({
   const sidebarUser = {
     ...user,
     storageUsed: storage._sum.fileSize ?? 0,
-    storageLimit: 50 * 1024 * 1024,
+    storageLimit: STORAGE_LIMIT_BYTES,
   };
 
   return (

@@ -1,4 +1,5 @@
 import { FileItem, User, AdminStats } from '@/types/index';
+import { STORAGE_LIMIT_BYTES } from '@/lib/constants';
 
 export const currentUser: User = {
   id: '1',
@@ -7,7 +8,7 @@ export const currentUser: User = {
   avatar: '',
   role: 'admin',
   storageUsed: 4.2 * 1024 * 1024 * 1024,
-  storageLimit: 50 * 1024 * 1024,
+  storageLimit: STORAGE_LIMIT_BYTES,
   joinedAt: '2024-01-15',
 };
 
@@ -70,10 +71,10 @@ export const mockFiles: FileItem[] = [
 
 export const mockUsers: User[] = [
   currentUser,
-  { id: '2', name: 'Sarah Chen', email: 'sarah@company.com', avatar: '', role: 'user', storageUsed: 2.1 * 1024 * 1024 * 1024, storageLimit: 50 * 1024 * 1024, joinedAt: '2024-02-01' },
-  { id: '3', name: 'Mike Rivera', email: 'mike@company.com', avatar: '', role: 'user', storageUsed: 7.8 * 1024 * 1024 * 1024, storageLimit: 50 * 1024 * 1024, joinedAt: '2024-01-20' },
-  { id: '4', name: 'Emily Park', email: 'emily@company.com', avatar: '', role: 'user', storageUsed: 1.5 * 1024 * 1024 * 1024, storageLimit: 50 * 1024 * 1024, joinedAt: '2024-03-01' },
-  { id: '5', name: 'James Wilson', email: 'james@company.com', avatar: '', role: 'user', storageUsed: 5.3 * 1024 * 1024 * 1024, storageLimit: 50 * 1024 * 1024, joinedAt: '2024-02-15' },
+  { id: '2', name: 'Sarah Chen', email: 'sarah@company.com', avatar: '', role: 'user', storageUsed: 2.1 * 1024 * 1024 * 1024, storageLimit: STORAGE_LIMIT_BYTES, joinedAt: '2024-02-01' },
+  { id: '3', name: 'Mike Rivera', email: 'mike@company.com', avatar: '', role: 'user', storageUsed: 7.8 * 1024 * 1024 * 1024, storageLimit: STORAGE_LIMIT_BYTES, joinedAt: '2024-01-20' },
+  { id: '4', name: 'Emily Park', email: 'emily@company.com', avatar: '', role: 'user', storageUsed: 1.5 * 1024 * 1024 * 1024, storageLimit: STORAGE_LIMIT_BYTES, joinedAt: '2024-03-01' },
+  { id: '5', name: 'James Wilson', email: 'james@company.com', avatar: '', role: 'user', storageUsed: 5.3 * 1024 * 1024 * 1024, storageLimit: STORAGE_LIMIT_BYTES, joinedAt: '2024-02-15' },
 ];
 
 export const adminStats: AdminStats = {

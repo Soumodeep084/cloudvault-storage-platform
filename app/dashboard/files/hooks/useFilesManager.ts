@@ -92,7 +92,7 @@ export function useFilesManager({
   const [isMoving, setIsMoving] = useState(false);
 
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
-  const [isDragOverRoot, setIsDragOverRoot] = useState(false);
+  // `isDragOverRoot` is derived from `dragOverTarget` below — no separate state needed
 
   useEffect(() => {
     setFiles(initialFiles);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Folder, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -49,15 +49,19 @@ export default function TrashClient({
   folders,
   retentionDays,
 }: TrashClientProps) {
-  const [entries, setEntries] = useState<TrashEntry[]>(() => [
-    ...folders.map((item) => ({ kind: "folder", item } as TrashEntry)),
-    ...files.map((item) => ({ kind: "file", item } as TrashEntry)),
-  ]);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<
     | { type: "restore" | "delete"; entry: TrashEntry }
     | null
   >(null);
+
+  const entries = useMemo<TrashEntry[]>(() => {
+    return [
+      ...folders.map((item) => ({ kind: "folder", item } as TrashEntry)),
+      ...files.map((item) => ({ kind: "file", item } as TrashEntry)),
+    ].filter((e) => !removedIds.includes(e.item.id));
+  }, [files, folders, removedIds]);
 
   const sortedEntries = useMemo(() => {
     return [...entries].sort((a, b) => {
@@ -67,12 +71,7 @@ export default function TrashClient({
     });
   }, [entries]);
 
-  useEffect(() => {
-    setEntries([
-      ...folders.map((item) => ({ kind: "folder", item } as TrashEntry)),
-      ...files.map((item) => ({ kind: "file", item } as TrashEntry)),
-    ]);
-  }, [files, folders]);
+  // entries are derived from props (files/folders) and `removedIds`
 
   const handleRestore = useCallback(async (entry: TrashEntry) => {
     setBusyId(entry.item.id);
@@ -86,8 +85,7 @@ export default function TrashClient({
       toast.error(result.error || "Unable to restore");
       return;
     }
-
-    setEntries((prev) => prev.filter((item) => item.item.id !== entry.item.id));
+    setRemovedIds((prev) => [...prev, entry.item.id]);
     toast.success("Restored");
   }, []);
 
@@ -103,8 +101,7 @@ export default function TrashClient({
       toast.error(result.error || "Unable to delete");
       return;
     }
-
-    setEntries((prev) => prev.filter((item) => item.item.id !== entry.item.id));
+    setRemovedIds((prev) => [...prev, entry.item.id]);
     toast.success("Deleted permanently");
   }, []);
 

@@ -8,12 +8,13 @@ import {
   Settings,
   LayoutDashboard,
   Shield,
-  Cloud,
+  
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { formatFileSize, cn } from "@/lib/utils";
+import { STORAGE_LIMIT_BYTES } from "@/lib/constants";
 import { Progress } from "@/components/ui/progress";
 import {
   Sidebar,
@@ -27,6 +28,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import Image from "next/image";
 
 // Define the shape of the user prop
 interface AppSidebarProps {
@@ -61,7 +63,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
 
   // Handle default storage values if not in DB yet
   const used = user?.storageUsed || 0;
-  const limit = user?.storageLimit || 50 * 1024 * 1024; // Default 50MB
+  const limit = user?.storageLimit || STORAGE_LIMIT_BYTES; // Default 50MB from constants
   const storagePercent = (used / limit) * 100;
 
   return (
@@ -69,9 +71,25 @@ export function AppSidebar({ user }: AppSidebarProps) {
       <SidebarContent className="bg-white">
         <SidebarGroup>
           <SidebarGroupLabel className="px-3 py-6 group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:justify-center">
-            <div className="flex items-center gap-2">
-              <Cloud className="h-6 w-6 text-primary" />
-              <span className="font-bold text-lg text-foreground text-nowrap group-data-[collapsible=icon]:hidden">
+            <div
+              className={
+                collapsed
+                  ? "flex items-center justify-center"
+                  : "flex items-center gap-2"
+              }
+            >
+              <div className="flex items-center justify-center shrink-0">
+                <Image
+                  src="/icon-cloudvault.png"
+                  alt="CloudVault Logo"
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 object-contain rounded-md"
+                  priority
+                />
+              </div>
+
+              <span className="font-bold text-lg text-foreground whitespace-nowrap group-data-[collapsible=icon]:hidden">
                 CloudVault
               </span>
             </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ShieldCheck, ShieldAlert, Crown, Mail, User } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, formatFileSize } from "@/lib/utils";
+import { STORAGE_LIMIT_BYTES } from "@/lib/constants";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +36,7 @@ import {
   verifyAccountDeletionOtpAction,
 } from "@/app/actions/accountDeletionActions";
 
-const STORAGE_LIMIT = 50 * 1024 * 1024;
+const STORAGE_LIMIT = STORAGE_LIMIT_BYTES;
 
 type SettingsUser = {
   id: string;
