@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "CloudVault - Your Personal Cloud Storage",
-  description: "Created by Soumodeep",
+  description: "Secure cloud storage platform built with Next.js",
 };
 
 export default function RootLayout({

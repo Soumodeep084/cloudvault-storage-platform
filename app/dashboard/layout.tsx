@@ -6,6 +6,13 @@ import { getSessionUser } from "@/lib/auth-help";
 import { db } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { STORAGE_LIMIT_BYTES } from "@/lib/constants";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "CloudVault - Dashboard",
+  description: "Created by Soumodeep",
+};
+
 
 export default async function DashboardLayout({
   children,
