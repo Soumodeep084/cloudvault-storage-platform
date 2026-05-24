@@ -4,23 +4,27 @@ import Features from "@/components/Homepage/Features";
 import Benefits from "@/components/Homepage/Benefits";
 import Footer from "@/components/Homepage/Footer";
 
-
 const HomePage = () => {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Navbar Section */}
+    <div className="relative min-h-screen overflow-hidden bg-background">
+      {/* Background Glow */}
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute left-1/2 top-0 h-125 w-125 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+      </div>
+
+      {/* Navbar */}
       <Navbar />
 
-      {/* Hero Section */}
+      {/* Hero */}
       <Hero />
 
-      {/* Features Section */}
+      {/* Features */}
       <Features />
 
-      {/* Benefits Section*/}
+      {/* Benefits */}
       <Benefits />
 
-      {/* Footer Section*/}
+      {/* Footer */}
       <Footer />
     </div>
   );

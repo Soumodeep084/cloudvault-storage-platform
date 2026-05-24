@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Cloud, ArrowRight } from "lucide-react";
+import { ShieldCheck, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,36 +13,61 @@ const Hero = () => {
     <section className="relative overflow-hidden">
       <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-primary/10" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 relative">
+      <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 md:py-32 lg:px-8">
         <motion.div
-          key={pathname} // ✅ force remount on route change
+          key={pathname}
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="text-center max-w-3xl mx-auto"
+          className="mx-auto max-w-4xl text-center"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
-            <Cloud className="h-4 w-4" /> Now with 50MB free storage
+          {/* Badge */}
+          <div className="mb-6 inline-flex max-w-full items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
+            <ShieldCheck className="h-4 w-4 shrink-0" />
+            <span>Secure cloud storage with 50MB free space</span>
           </div>
 
-          <h1 className="text-4xl md:text-6xl font-extrabold mb-6">
-            Smart File Sharing <br /> & Backup Platform
+          {/* Heading */}
+          <h1 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl">
+            Secure Cloud Storage <br />
+            for Your Important Files
           </h1>
 
-          <p className="text-lg text-muted-foreground mb-8">
-            Store, share, and access your files anywhere.
+          {/* Paragraph */}
+          <p className="mx-auto mt-6 max-w-2xl text-base text-muted-foreground sm:text-lg">
+            Upload, organize, and access your files securely from anywhere with
+            CloudVault.
           </p>
 
-          <div className="flex gap-4 justify-center">
-            <Button asChild>
+          {/* Buttons */}
+          <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+            <Button size="lg" asChild>
               <Link href="/signup">
-                Get Started <ArrowRight className="ml-2 h-4 w-4" />
+                Get Started
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
 
-            <Button variant="outline" asChild>
+            <Button size="lg" variant="outline" asChild>
               <Link href="/login">Sign In</Link>
             </Button>
+          </div>
+
+          {/* Feature Pills */}
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+            {[
+              "Secure Uploads",
+              "Protected Storage",
+              "Easy Access",
+              "Personal Dashboard",
+            ].map((item) => (
+              <div
+                key={item}
+                className="rounded-full border border-border bg-background/80 px-4 py-2 text-sm text-muted-foreground shadow-sm backdrop-blur-sm"
+              >
+                {item}
+              </div>
+            ))}
           </div>
         </motion.div>
       </div>
