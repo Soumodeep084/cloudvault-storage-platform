@@ -3,7 +3,7 @@ export interface User {
     name: string;
     email: string;
     avatar: string;
-    role: 'admin' | 'user';
+    role: 'ADMIN' | 'USER';
     storageUsed: number;
     storageLimit: number;
     joinedAt: string;
@@ -24,6 +24,8 @@ export type FileCategory =
 
 export interface FileItem {
     id: string;
+
+    // UI shape
     name?: string;
     type?: FileCategory;
     size?: number | null;
@@ -40,21 +42,15 @@ export interface FileItem {
     fileUrl?: string;
     fileSize?: number | null;
     fileType?: string | null;
+
     isDeleted?: boolean;
     isTrashed?: boolean;
     trashedDate?: string | Date | null;
+
     folderId?: string | null;
+
     createdAt?: string | Date;
     updatedAt?: string | Date;
-
-    versions?: Array<{
-        id: string;
-        version: number;
-        size: number;
-        createdAt: string | Date;
-        createdBy: string;
-        changes: string;
-    }>;
 }
 
 export interface FolderItem {

@@ -246,9 +246,9 @@ export default function AdminPage() {
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={u.role === "admin" ? "default" : "secondary"}
+                      variant={u.role === "ADMIN" ? "default" : "secondary"}
                       className={
-                        u.role === "admin"
+                        u.role === "ADMIN"
                           ? "bg-indigo-600 hover:bg-indigo-700"
                           : "bg-slate-100 text-slate-600 border-none"
                       }
