@@ -8,6 +8,32 @@ function normalizeFolderName(name: string) {
   return name.trim();
 }
 
+function stripNumberSuffix(name: string) {
+  return name.replace(/\s\(\d+\)$/, "");
+}
+
+function getUniqueFolderName(originalName: string, existingNames: string[]) {
+  const trimmedName = normalizeFolderName(originalName);
+  const normalizedExistingNames = new Set(
+    existingNames.map((name) => name.toLowerCase()),
+  );
+
+  if (!normalizedExistingNames.has(trimmedName.toLowerCase())) {
+    return trimmedName;
+  }
+
+  const baseName = stripNumberSuffix(trimmedName);
+  let counter = 1;
+
+  while (
+    normalizedExistingNames.has(`${baseName} (${counter})`.toLowerCase())
+  ) {
+    counter += 1;
+  }
+
+  return `${baseName} (${counter})`;
+}
+
 function buildChildrenMap(
   folders: Array<{ id: string; parentId: string | null }>,
 ) {
@@ -69,26 +95,26 @@ export async function createFolderAction(
       }
     }
 
-      const duplicate = await db.folder.findFirst({
-        where: {
-          userId: user.id,
-          parentId: parentId ?? null,
-          isDeleted: false,
-          isTrashed: false,
-          name: { equals: normalizedName, mode: "insensitive" },
-        },
-      select: { id: true },
+    const existingFolders = await db.folder.findMany({
+      where: {
+        userId: user.id,
+        parentId: parentId ?? null,
+        isDeleted: false,
+        isTrashed: false,
+      },
+      select: { name: true },
     });
 
-    if (duplicate) {
-      return { success: false, error: "A folder with this name already exists." };
-    }
+    const uniqueName = getUniqueFolderName(
+      normalizedName,
+      existingFolders.map((folder) => folder.name),
+    );
 
     const folder = await db.folder.create({
       data: {
         userId: user.id,
         parentId: parentId ?? null,
-        name: normalizedName,
+        name: uniqueName,
       },
       select: { id: true, name: true, parentId: true, createdAt: true, updatedAt: true },
     });

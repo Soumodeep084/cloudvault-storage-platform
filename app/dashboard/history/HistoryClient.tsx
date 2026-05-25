@@ -17,6 +17,10 @@ const PAGE_SIZE = 10;
 
 type ActivityMeta = {
   fileName?: string;
+  folderName?: string;
+  fileCount?: number;
+  message?: string;
+  kind?: string;
 };
 
 type ActivityEntry = {
@@ -26,7 +30,16 @@ type ActivityEntry = {
   createdAt: string | Date;
 };
 
-function getActivityView(action: string) {
+function getActivityView(action: string, meta?: ActivityMeta) {
+  if (action === "UPLOAD" && meta?.message) {
+    return {
+      label: meta.message,
+      icon: Upload,
+      badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      iconWrapClass: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200",
+    };
+  }
+
   switch (action) {
     case "UPLOAD":
       return {
@@ -105,8 +118,11 @@ export default function HistoryClient({ initialActivities }: { initialActivities
       if (!matchesActionFilter(entry.action, filter)) return false;
 
       const meta = (entry.metadata || {}) as ActivityMeta;
-      const fileName = meta.fileName || "";
-      if (normalizedQuery && !fileName.toLowerCase().includes(normalizedQuery)) return false;
+      const searchText = [meta.fileName, meta.folderName, meta.message]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (normalizedQuery && !searchText.includes(normalizedQuery)) return false;
 
       const createdAt = new Date(entry.createdAt).getTime();
       if (fromTime && createdAt < fromTime) return false;
@@ -198,8 +214,8 @@ export default function HistoryClient({ initialActivities }: { initialActivities
       ) : (
         <div className="space-y-3">
           {paginatedActivities.map((entry) => {
-            const view = getActivityView(entry.action);
             const meta = (entry.metadata || {}) as ActivityMeta;
+            const view = getActivityView(entry.action, meta);
             const Icon = view.icon;
 
             return (
@@ -216,9 +232,15 @@ export default function HistoryClient({ initialActivities }: { initialActivities
 
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900 leading-5">{view.label}</p>
-                    <p className="text-xs text-slate-500 wrap-break-word">
-                      {meta.fileName || "Unknown file"} <span className="mx-1 text-slate-300">•</span> {formatDateTime(entry.createdAt)}
-                    </p>
+                    {meta.message ? (
+                      <p className="text-xs text-slate-500 wrap-break-word">
+                        {formatDateTime(entry.createdAt)}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-500 wrap-break-word">
+                        {meta.fileName || "Unknown file"} <span className="mx-1 text-slate-300">•</span> {formatDateTime(entry.createdAt)}
+                      </p>
+                    )}
                   </div>
                 </div>
 

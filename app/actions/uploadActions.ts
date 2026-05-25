@@ -2,13 +2,14 @@
 import { supabaseAdmin } from "@/lib/supabase"; // Use the admin client with Service Key
 import { getSessionUser } from "@/lib/auth-help";
 
-export async function getPresignedUrl(fileName: string) {
+export async function getPresignedUrl(fileName: string, storageName?: string) {
     const user = await getSessionUser();
     if (!user) throw new Error("Unauthorized");
 
     if (!supabaseAdmin) throw new Error("Supabase admin client is not configured");
 
-    const path = `${user.id}/${Date.now()}-${fileName}`;
+    const safeName = (storageName?.trim() || fileName).replace(/[\\/]/g, "__");
+    const path = `${user.id}/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
 
     // Generate a signed URL for uploading (valid for 5 minutes)
     const { data, error } = await supabaseAdmin.storage

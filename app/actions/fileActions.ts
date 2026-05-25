@@ -64,6 +64,7 @@ export async function recordFileUpload(data: {
     fileSize: number;
     fileType: string;
     folderId?: string | null;
+    logActivity?: boolean;
 }) {
     try {
         if (data.folderId) {
@@ -107,27 +108,80 @@ export async function recordFileUpload(data: {
                 data: { storageUsed: { increment: data.fileSize } }
             });
 
-            await tx.activity.create({
-                data: {
-                    userId: data.userId,
-                    action: ActivityAction.UPLOAD,
-                    fileId,
-                    metadata: {
+            if (data.logActivity !== false) {
+                await tx.activity.create({
+                    data: {
+                        userId: data.userId,
+                        action: ActivityAction.UPLOAD,
                         fileId,
-                        fileName: uniqueName,
-                        fileSize: data.fileSize,
+                        metadata: {
+                            fileId,
+                            fileName: uniqueName,
+                            fileSize: data.fileSize,
+                        },
                     },
-                },
-            });
+                });
+            }
 
             return { success: true, fileId };
         });
 
         revalidatePath("/dashboard");
+        revalidatePath("/dashboard/files");
+        if (data.logActivity !== false) {
+            revalidatePath("/dashboard/history");
+        }
         return result;
     } catch (error) {
         console.error("Database Error:", error);
         return { success: false, error: "Failed to save file info" };
+    }
+}
+
+export async function recordFolderUploadActivity(data: {
+    userId: string;
+    folderId: string;
+    folderName: string;
+    fileCount: number;
+}) {
+    try {
+        const folder = await db.folder.findFirst({
+            where: {
+                id: data.folderId,
+                userId: data.userId,
+                isDeleted: false,
+                isTrashed: false,
+            },
+            select: { id: true, name: true },
+        });
+
+        if (!folder) {
+            return { success: false, error: "Folder not found" };
+        }
+
+        await db.activity.create({
+            data: {
+                userId: data.userId,
+                action: ActivityAction.UPLOAD,
+                fileId: null,
+                metadata: {
+                    kind: "folder-upload",
+                    folderId: folder.id,
+                    folderName: data.folderName,
+                    fileCount: data.fileCount,
+                    message: `Uploaded a Folder - ${data.fileCount} files`,
+                },
+            },
+        });
+
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/files");
+        revalidatePath("/dashboard/history");
+
+        return { success: true };
+    } catch (error) {
+        console.error("Folder upload activity error:", error);
+        return { success: false, error: "Failed to log folder upload" };
     }
 }
 
