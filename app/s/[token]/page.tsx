@@ -3,10 +3,11 @@ import { cookies } from "next/headers";
 import { Download, Eye, ShieldCheck, LockKeyhole } from "lucide-react";
 import { db } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-
-function getShareAccessCookieName(shareId: string) {
-  return `share_access_${shareId}`;
-}
+import {
+  createPublicShareAccessCookieValue,
+  getPublicShareAccessCookieName,
+  isValidPublicShareAccessCookie,
+} from "@/lib/public-share-access";
 
 export default async function PublicSharePage({
   params,
@@ -20,7 +21,7 @@ export default async function PublicSharePage({
 
   const share = await db.share.findFirst({
     where: {
-      shareLink: { endsWith: `/s/${token}` },
+      token,
       isPublic: true,
       OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     },
@@ -44,8 +45,8 @@ export default async function PublicSharePage({
   }
 
   const cookieStore = await cookies();
-  const accessCookie = cookieStore.get(getShareAccessCookieName(share.id))?.value;
-  const hasAccess = !share.password || accessCookie === token;
+  const accessCookie = cookieStore.get(getPublicShareAccessCookieName(share.id))?.value;
+  const hasAccess = !share.password || isValidPublicShareAccessCookie(share.id, accessCookie);
 
   async function unlockSharedFile(formData: FormData) {
     "use server";
@@ -54,7 +55,7 @@ export default async function PublicSharePage({
 
     const latestShare = await db.share.findFirst({
       where: {
-        shareLink: { endsWith: `/s/${token}` },
+        token,
         isPublic: true,
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
@@ -78,13 +79,17 @@ export default async function PublicSharePage({
     }
 
     const actionCookieStore = await cookies();
-    actionCookieStore.set(getShareAccessCookieName(latestShare.id), token, {
+    actionCookieStore.set(
+      getPublicShareAccessCookieName(latestShare.id),
+      createPublicShareAccessCookieValue(latestShare.id),
+      {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60 * 24,
       path: "/",
-    });
+      },
+    );
 
     redirect(`/s/${token}`);
   }

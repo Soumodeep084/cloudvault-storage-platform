@@ -220,7 +220,7 @@ export async function createShareLink(
 
         const file = await db.file.findFirst({
             where: { id: fileId, userId: user.id, isDeleted: false, isTrashed: false },
-            include: { shares: true },
+            include: { shares: { select: { id: true, token: true, shareLink: true } } },
         });
 
         if (!file) {
@@ -228,7 +228,7 @@ export async function createShareLink(
         }
 
         const existingShare = file.shares[0];
-        if (existingShare?.shareLink) {
+        if (existingShare?.token) {
             await db.share.update({
                 where: { id: existingShare.id },
                 data: {
@@ -250,12 +250,14 @@ export async function createShareLink(
         }
 
         const shareBaseUrl = process.env.SHARE_BASE_URL?.trim() || "http://localhost:3000";
-        const shareLink = `${shareBaseUrl.replace(/\/$/, "")}/s/${crypto.randomUUID()}`;
+        const token = crypto.randomUUID();
+        const shareLink = `${shareBaseUrl.replace(/\/$/, "")}/s/${token}`;
 
         await db.share.create({
             data: {
                 fileId: file.id,
                 userId: user.id,
+                token,
                 shareLink,
                 isPublic: true,
                 password: passwordHash,

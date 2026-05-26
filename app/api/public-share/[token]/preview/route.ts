@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/prisma";
 import { supabaseAdmin } from "@/lib/supabase";
 import { extractStoragePathFromUrl } from "@/lib/storage-path";
+import {
+  getPublicShareAccessCookieName,
+  isValidPublicShareAccessCookie,
+} from "@/lib/public-share-access";
 
 export const runtime = "nodejs";
-
-function getShareAccessCookieName(shareId: string) {
-  return `share_access_${shareId}`;
-}
 
 function buildContentDisposition(fileName: string) {
   const encodedName = encodeURIComponent(fileName);
@@ -22,7 +22,7 @@ export async function GET(
 
   const share = await db.share.findFirst({
     where: {
-      shareLink: { endsWith: `/s/${token}` },
+      token,
       isPublic: true,
       OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     },
@@ -44,8 +44,8 @@ export async function GET(
   }
 
   if (share.password) {
-    const accessCookie = request.cookies.get(getShareAccessCookieName(share.id))?.value;
-    if (accessCookie !== token) {
+    const accessCookie = request.cookies.get(getPublicShareAccessCookieName(share.id))?.value;
+    if (!isValidPublicShareAccessCookie(share.id, accessCookie)) {
       return NextResponse.redirect(new URL(`/s/${token}?error=auth-required`, request.url));
     }
   }

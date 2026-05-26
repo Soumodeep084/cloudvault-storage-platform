@@ -129,6 +129,7 @@ model Share {
   id        String    @id @default(uuid())
   fileId    String
   userId    String
+  token     String    @unique
   shareLink String    @unique
   password  String?
   isPublic  Boolean   @default(false)
