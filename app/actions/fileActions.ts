@@ -301,29 +301,13 @@ export async function deleteFileAction(fileId: string) {
 
         const trashedAt = new Date();
 
-        await db.$transaction(async (tx) => {
-            await tx.activity.create({
-                data: {
-                    userId: user.id,
-                    action: ActivityAction.DELETE,
-                    fileId: file.id,
-                    metadata: {
-                        fileId: file.id,
-                        fileName: file.fileName,
-                        trashed: true,
-                    },
-                },
-            });
-
-            await tx.file.update({
-                where: { id: file.id },
-                data: { isTrashed: true, trashedDate: trashedAt },
-            });
+        await db.file.update({
+            where: { id: file.id },
+            data: { isTrashed: true, trashedDate: trashedAt },
         });
 
         revalidatePath("/dashboard");
         revalidatePath("/dashboard/files");
-        revalidatePath("/dashboard/history");
         revalidatePath("/dashboard/trash");
 
         return { success: true };

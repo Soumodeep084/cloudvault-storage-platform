@@ -19,8 +19,10 @@ type ActivityMeta = {
   fileName?: string;
   folderName?: string;
   fileCount?: number;
+  folderCount?: number;
   message?: string;
   kind?: string;
+  badge?: string;
 };
 
 type ActivityEntry = {
@@ -50,10 +52,11 @@ function getActivityView(action: string, meta?: ActivityMeta) {
       };
     case "DELETE":
       return {
-        label: "Deleted a file",
+        label: meta?.message || "Deleted a file",
         icon: Trash2,
         badgeClass: "bg-rose-50 text-rose-700 border-rose-200",
         iconWrapClass: "bg-rose-100 text-rose-700 ring-1 ring-rose-200",
+        badgeLabel: meta?.badge,
       };
     case "SHARE":
       return {
@@ -247,7 +250,7 @@ export default function HistoryClient({ initialActivities }: { initialActivities
                 <span
                   className={`self-start sm:self-center text-[10px] sm:text-[11px] font-semibold border px-2.5 py-1 rounded-full ${view.badgeClass}`}
                 >
-                  {entry.action}
+                  {view.badgeLabel || entry.action}
                 </span>
               </div>
             );

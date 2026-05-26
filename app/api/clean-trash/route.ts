@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/prisma";
 import { supabaseAdmin } from "@/lib/supabase";
 import { extractStoragePathFromUrl } from "@/lib/storage-path";
+import { ActivityAction } from "@prisma/client";
 
 const TRASH_RETENTION_DAYS = 30;
 const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
@@ -52,6 +53,17 @@ async function deleteStorageFiles(fileUrls: string[]) {
     await supabaseAdmin.storage.from("files").remove(paths);
 }
 
+function formatDeleteSummary(folderCount: number, fileCount: number) {
+    const parts: string[] = [];
+    if (folderCount > 0) {
+        parts.push(`${folderCount} folder${folderCount === 1 ? "" : "s"}`);
+    }
+    if (fileCount > 0) {
+        parts.push(`${fileCount} file${fileCount === 1 ? "" : "s"}`);
+    }
+    return parts.join(", ");
+}
+
 export async function GET() {
     try {
         if (!supabaseAdmin) {
@@ -65,19 +77,29 @@ export async function GET() {
 
         const trashedFolders = await db.folder.findMany({
             where: { isTrashed: true, trashedDate: { not: null } },
-            select: { id: true, parentId: true, trashedDate: true },
+            select: { id: true, parentId: true, trashedDate: true, userId: true },
         });
 
         const childrenMap = buildChildrenMap(trashedFolders);
-        const expiredFolderIds = new Set<string>();
+        const folderUserMap = new Map<string, string>();
+        for (const folder of trashedFolders) {
+            folderUserMap.set(folder.id, folder.userId);
+        }
+
+        const expiredFolderIdsByUser = new Map<string, Set<string>>();
         for (const folder of trashedFolders) {
             if (!folder.trashedDate || folder.trashedDate > cutoff) continue;
             for (const id of collectDescendants(folder.id, childrenMap)) {
-                expiredFolderIds.add(id);
+                const ownerId = folderUserMap.get(id) ?? folder.userId;
+                const bucket = expiredFolderIdsByUser.get(ownerId) ?? new Set<string>();
+                bucket.add(id);
+                expiredFolderIdsByUser.set(ownerId, bucket);
             }
         }
 
-        const expiredFolderList = Array.from(expiredFolderIds);
+        const expiredFolderList = Array.from(
+            new Set(Array.from(expiredFolderIdsByUser.values()).flatMap((set) => Array.from(set))),
+        );
         const fileFilters: Array<{ trashedDate?: { lte: Date }; folderId?: { in: string[] } }> = [
             { trashedDate: { lte: cutoff } },
         ];
@@ -87,10 +109,10 @@ export async function GET() {
 
         const expiredFiles = await db.file.findMany({
             where: { isTrashed: true, OR: fileFilters },
-            select: { id: true, fileUrl: true },
+            select: { id: true, fileUrl: true, userId: true },
         });
 
-        if (expiredFiles.length === 0 && expiredFolderIds.size === 0) {
+        if (expiredFiles.length === 0 && expiredFolderList.length === 0) {
             return NextResponse.json({
                 success: true,
                 deletedFiles: 0,
@@ -100,14 +122,45 @@ export async function GET() {
 
         await deleteStorageFiles(expiredFiles.map((item) => item.fileUrl));
 
+        const fileCountsByUser = new Map<string, number>();
+        for (const file of expiredFiles) {
+            fileCountsByUser.set(file.userId, (fileCountsByUser.get(file.userId) ?? 0) + 1);
+        }
+
+        const affectedUsers = new Set<string>([...expiredFolderIdsByUser.keys(), ...fileCountsByUser.keys()]);
+        const activityPayload = Array.from(affectedUsers).map((userId) => {
+            const folderCount = expiredFolderIdsByUser.get(userId)?.size ?? 0;
+            const fileCount = fileCountsByUser.get(userId) ?? 0;
+            const summary = formatDeleteSummary(folderCount, fileCount);
+            const message = summary
+                ? `Deleted from system after 30 days in Trash. ${summary}.`
+                : "Deleted from system after 30 days in Trash.";
+            return {
+                userId,
+                action: ActivityAction.DELETE,
+                fileId: null,
+                metadata: {
+                    kind: "trash-auto-delete",
+                    folderCount,
+                    fileCount,
+                    message,
+                    badge: "Deleted from system after 30 days in Trash.",
+                },
+            };
+        });
+
         await db.$transaction(async (tx) => {
+            if (activityPayload.length > 0) {
+                await tx.activity.createMany({ data: activityPayload });
+            }
+
             if (expiredFiles.length > 0) {
                 await tx.file.deleteMany({
                     where: { id: { in: expiredFiles.map((item) => item.id) } },
                 });
             }
 
-            if (expiredFolderIds.size > 0) {
+            if (expiredFolderList.length > 0) {
                 await tx.folder.deleteMany({
                     where: { id: { in: expiredFolderList } },
                 });
@@ -117,7 +170,7 @@ export async function GET() {
         return NextResponse.json({
             success: true,
             deletedFiles: expiredFiles.length,
-            deletedFolders: expiredFolderIds.size,
+            deletedFolders: expiredFolderList.length,
         });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Something went wrong";

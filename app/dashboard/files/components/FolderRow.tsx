@@ -115,7 +115,7 @@ export function FolderRow({
               onClick={() => onDelete(folder)}
               className="text-destructive focus:bg-destructive/10 focus:text-destructive"
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Move to Trash
+              <Trash2 className="mr-2 h-4 w-4 focus:bg-destructive/10 focus:text-destructive" /> Move to Trash
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

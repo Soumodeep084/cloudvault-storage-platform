@@ -3,14 +3,13 @@ import { getSessionUser } from "@/lib/auth-help";
 import { db } from "@/lib/prisma";
 import TrashClient from "./TrashClient";
 import { purgeExpiredTrashAction } from "@/app/actions/trashActions";
+import { Button } from "@/components/ui/button";
 
 const TRASH_RETENTION_DAYS = 30;
 
 export default async function TrashPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
-
-  await purgeExpiredTrashAction();
 
   const trashedFolders = await db.folder.findMany({
     where: { userId: user.id, isDeleted: false, isTrashed: true },
@@ -43,11 +42,13 @@ export default async function TrashPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
         <h1 className="text-2xl font-bold tracking-tight">Trash</h1>
         <p className="text-sm text-muted-foreground">
           Items stay in trash for {TRASH_RETENTION_DAYS} days before permanent removal.
         </p>
+        </div>
       </div>
       <TrashClient
         files={visibleFiles.map((file) => ({

@@ -5,6 +5,7 @@ import { db } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-help";
 import { supabaseAdmin } from "@/lib/supabase";
 import { extractStoragePathFromUrl } from "@/lib/storage-path";
+import { ActivityAction } from "@prisma/client";
 
 const TRASH_RETENTION_DAYS = 30;
 
@@ -48,6 +49,17 @@ async function deleteStorageFiles(fileUrls: string[]) {
     .filter((path): path is string => Boolean(path));
   if (paths.length === 0) return;
   await supabaseAdmin.storage.from("files").remove(paths);
+}
+
+function formatDeleteSummary(folderCount: number, fileCount: number) {
+  const parts: string[] = [];
+  if (folderCount > 0) {
+    parts.push(`${folderCount} folder${folderCount === 1 ? "" : "s"}`);
+  }
+  if (fileCount > 0) {
+    parts.push(`${fileCount} file${fileCount === 1 ? "" : "s"}`);
+  }
+  return parts.join(", ");
 }
 
 export async function restoreFileAction(fileId: string) {
@@ -139,15 +151,31 @@ export async function deleteFilePermanentlyAction(fileId: string) {
 
   const file = await db.file.findFirst({
     where: { id: fileId, userId: user.id, isDeleted: false, isTrashed: true },
-    select: { id: true, fileUrl: true },
+    select: { id: true, fileUrl: true, fileName: true },
   });
 
   if (!file) return { success: false, error: "File not found" };
 
   await deleteStorageFiles([file.fileUrl]);
-  await db.file.delete({ where: { id: file.id } });
+  await db.$transaction(async (tx) => {
+    await tx.activity.create({
+      data: {
+        userId: user.id,
+        action: ActivityAction.DELETE,
+        fileId: file.id,
+        metadata: {
+          fileId: file.id,
+          fileName: file.fileName,
+          kind: "trash-permanent-delete",
+        },
+      },
+    });
+
+    await tx.file.delete({ where: { id: file.id } });
+  });
 
   revalidatePath("/dashboard/trash");
+  revalidatePath("/dashboard/history");
 
   return { success: true };
 }
@@ -158,7 +186,7 @@ export async function deleteFolderPermanentlyAction(folderId: string) {
 
   const rootFolder = await db.folder.findFirst({
     where: { id: folderId, userId: user.id, isDeleted: false, isTrashed: true },
-    select: { id: true },
+    select: { id: true, name: true },
   });
 
   if (!rootFolder) return { success: false, error: "Folder not found" };
@@ -183,7 +211,27 @@ export async function deleteFolderPermanentlyAction(folderId: string) {
 
   await deleteStorageFiles(files.map((item) => item.fileUrl));
 
+  const folderCount = folderIds.length;
+  const fileCount = files.length;
+  const summary = formatDeleteSummary(folderCount, fileCount);
+
   await db.$transaction(async (tx) => {
+    await tx.activity.create({
+      data: {
+        userId: user.id,
+        action: ActivityAction.DELETE,
+        fileId: null,
+        metadata: {
+          kind: "trash-permanent-delete",
+          folderId: rootFolder.id,
+          folderName: rootFolder.name,
+          folderCount,
+          fileCount,
+          message: summary ? `Deleted from Trash: ${summary}.` : "Deleted from Trash.",
+        },
+      },
+    });
+
     await tx.file.deleteMany({
       where: { id: { in: files.map((item) => item.id) } },
     });
@@ -194,6 +242,7 @@ export async function deleteFolderPermanentlyAction(folderId: string) {
   });
 
   revalidatePath("/dashboard/trash");
+  revalidatePath("/dashboard/history");
 
   return { success: true };
 }
@@ -240,7 +289,29 @@ export async function purgeExpiredTrashAction() {
 
   await deleteStorageFiles(expiredFiles.map((item) => item.fileUrl));
 
+  const deletedFolderCount = expiredFolderIds.size;
+  const deletedFileCount = expiredFiles.length;
+  const expiredSummary = formatDeleteSummary(deletedFolderCount, deletedFileCount);
+  const systemMessage = expiredSummary
+    ? `Deleted from system after 30 days in Trash. ${expiredSummary}.`
+    : "Deleted from system after 30 days in Trash.";
+
   await db.$transaction(async (tx) => {
+    await tx.activity.create({
+      data: {
+        userId: user.id,
+        action: ActivityAction.DELETE,
+        fileId: null,
+        metadata: {
+          kind: "trash-auto-delete",
+          folderCount: deletedFolderCount,
+          fileCount: deletedFileCount,
+          message: systemMessage,
+          badge: "Deleted from system after 30 days in Trash.",
+        },
+      },
+    });
+
     if (expiredFiles.length > 0) {
       await tx.file.deleteMany({
         where: { id: { in: expiredFiles.map((item) => item.id) } },
@@ -255,6 +326,7 @@ export async function purgeExpiredTrashAction() {
   });
 
   revalidatePath("/dashboard/trash");
+  revalidatePath("/dashboard/history");
 
   return {
     success: true,
