@@ -25,8 +25,8 @@ import type { FileItem, FolderItem } from "@/types";
 
 export type FilesDialogsProps = {
   shareTarget:
-    | { type: "file"; item: FileItem }
-    | { type: "folder"; item: FolderItem }
+    | { type: "file"; item: FileItem; isRenewal?: boolean }
+    | { type: "folder"; item: FolderItem; isRenewal?: boolean }
     | null;
   isCreatingShare: boolean;
   onShareOpenChange: (open: boolean) => void;
@@ -138,16 +138,20 @@ export function FilesDialogs({
 
   return (
     <>
-      <ShareModal
-        open={!!shareTarget}
-        onOpenChange={onShareOpenChange}
-        fileName={shareItemName}
-        shareLink={shareTarget?.item.shareLink}
-        expiresAt={shareTarget?.item.shareExpiresAt}
-        itemLabel={shareItemLabel}
-        onCreateSecureLink={onCreateSecureShare}
-        isCreating={isCreatingShare}
-      />
+      {shareTarget && (
+        <ShareModal
+          key={shareTarget.item.id}
+          open
+          onOpenChange={onShareOpenChange}
+          fileName={shareItemName}
+          shareLink={shareTarget.item.shareLink}
+          expiresAt={shareTarget.item.shareExpiresAt}
+          itemLabel={shareItemLabel}
+          isRenewal={Boolean(shareTarget.isRenewal)}
+          onCreateSecureLink={onCreateSecureShare}
+          isCreating={isCreatingShare}
+        />
+      )}
 
       <Dialog open={!!renameFile} onOpenChange={(open) => (!open ? onRenameFileClose() : undefined)}>
         <DialogContent className="sm:max-w-md">

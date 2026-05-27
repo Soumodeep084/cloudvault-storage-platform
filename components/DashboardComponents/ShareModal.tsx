@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check, Link2, LockKeyhole } from "lucide-react";
+import { Copy, Check, Link2, LockKeyhole, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,6 +19,7 @@ interface ShareModalProps {
   shareLink?: string;
   expiresAt?: string | Date | null;
   itemLabel?: "file" | "folder";
+  isRenewal?: boolean;
   onCreateSecureLink: (options: {
     password: string;
     expiresInMinutes: number | null;
@@ -33,12 +34,14 @@ export function ShareModal({
   shareLink,
   expiresAt,
   itemLabel = "file",
+  isRenewal = false,
   onCreateSecureLink,
   isCreating = false,
 }: ShareModalProps) {
   const safeName = fileName.trim() ? fileName : `Untitled ${itemLabel}`;
   const [copied, setCopied] = useState(false);
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [expiryPreset, setExpiryPreset] = useState("10");
   const [customValue, setCustomValue] = useState("10");
   const [customUnit, setCustomUnit] = useState<"sec" | "min" | "hr">("min");
@@ -163,7 +166,10 @@ export function ShareModal({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+      <DialogContent
+        className="sm:max-w-md p-0 overflow-hidden"
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <div className="border-b bg-linear-to-b from-slate-50 to-white px-5 py-4">
             <DialogTitle className="flex items-center gap-2 text-base">
@@ -182,14 +188,25 @@ export function ShareModal({
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Password (required)
                 </label>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Minimum 6 characters"
-                  className="h-10"
-                  disabled={isCreating}
-                />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Minimum 6 characters"
+                    className="h-10 pr-10"
+                    disabled={isCreating}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-700"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    disabled={isCreating}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -263,13 +280,29 @@ export function ShareModal({
                 </p>
               </div>
 
-              <Button
-                onClick={handleCreate}
-                disabled={isCreating || !isValidPassword}
-                className="w-full h-10"
-              >
-                {isCreating ? "Creating secure link..." : "Create secure link"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isCreating}
+                  className="h-10 flex-1"
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={handleCreate}
+                  disabled={isCreating || !isValidPassword}
+                  className="h-10 flex-1"
+                >
+                  {isCreating
+                    ? isRenewal
+                      ? "Renewing share link..."
+                      : "Creating share link..."
+                    : isRenewal
+                      ? "Renew Share Link"
+                      : "Create Share Link"}
+                </Button>
+              </div>
             </>
           ) : (
             <>
@@ -293,6 +326,12 @@ export function ShareModal({
                 <Button onClick={handleCopy} size="sm" className="px-3">
                   <span className="sr-only">Copy</span>
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Close
                 </Button>
               </div>
             </>

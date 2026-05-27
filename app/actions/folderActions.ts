@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/auth-help";
 import { ActivityAction } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { buildShareLink } from "@/lib/share-link";
 
 function normalizeFolderName(name: string) {
   return name.trim();
@@ -348,7 +349,7 @@ export async function createFolderShareLink(
 
     const folder = await db.folder.findFirst({
       where: { id: folderId, userId: user.id, isDeleted: false, isTrashed: false },
-      include: { folderShares: { select: { id: true, token: true, shareLink: true } } },
+      include: { folderShares: { select: { id: true, token: true } } },
     });
 
     if (!folder) {
@@ -357,6 +358,7 @@ export async function createFolderShareLink(
 
     const existingShare = folder.folderShares[0];
     if (existingShare?.token) {
+      const shareLink = buildShareLink(existingShare.token);
       await db.folderShare.update({
         where: { id: existingShare.id },
         data: {
@@ -375,26 +377,23 @@ export async function createFolderShareLink(
             kind: "folder-share",
             folderId: folder.id,
             folderName: folder.name,
-            shareLink: existingShare.shareLink,
             hasPassword: true,
             expiresAt: expiresAt?.toISOString() ?? null,
           },
         },
       });
 
-      return { success: true, shareLink: existingShare.shareLink };
+      return { success: true, shareLink };
     }
 
-    const shareBaseUrl = process.env.SHARE_BASE_URL?.trim() || "http://localhost:3000";
-    const token = crypto.randomUUID();
-    const shareLink = `${shareBaseUrl.replace(/\/$/, "")}/s/${token}`;
+    const token = crypto.randomBytes(32).toString("hex");
+    const shareLink = buildShareLink(token);
 
     await db.folderShare.create({
       data: {
         folderId: folder.id,
         userId: user.id,
         token,
-        shareLink,
         isPublic: true,
         password: passwordHash,
         expiresAt,
@@ -410,7 +409,6 @@ export async function createFolderShareLink(
           kind: "folder-share",
           folderId: folder.id,
           folderName: folder.name,
-          shareLink,
           hasPassword: true,
           expiresAt: expiresAt?.toISOString() ?? null,
         },

@@ -1,5 +1,6 @@
 import { getSessionUser } from "@/lib/auth-help";
 import { db } from "@/lib/prisma";
+import { buildShareLink } from "@/lib/share-link";
 import { redirect } from "next/navigation";
 import FilesClient from "./FilesClient";
 
@@ -115,13 +116,13 @@ export default async function FilesPage({
         parentId: true,
         createdAt: true,
         updatedAt: true,
-        folderShares: { select: { shareLink: true, expiresAt: true } },
+        folderShares: { select: { token: true, expiresAt: true } },
       },
       orderBy: { name: "asc" },
     })
   ).map(({ folderShares, ...folder }) => ({
     ...folder,
-    shareLink: folderShares?.[0]?.shareLink,
+    shareLink: folderShares?.[0]?.token ? buildShareLink(folderShares[0].token) : undefined,
     shareExpiresAt: folderShares?.[0]?.expiresAt ?? null,
     shared: Boolean(folderShares?.length),
   }));
@@ -195,11 +196,11 @@ export default async function FilesPage({
         folderId: currentFolderId ?? null,
       },
       orderBy: { createdAt: "desc" },
-      include: { shares: true },
+      include: { shares: { select: { token: true, expiresAt: true } } },
     })
   ).map(({ shares, ...file }) => ({
     ...file,
-    shareLink: shares?.[0]?.shareLink,
+    shareLink: shares?.[0]?.token ? buildShareLink(shares[0].token) : undefined,
     shared: Boolean(shares?.length),
     shareExpiresAt: shares?.[0]?.expiresAt ?? null,
   }));

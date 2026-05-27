@@ -5,6 +5,8 @@ import { getSessionUser } from "@/lib/auth-help";
 import { revalidatePath } from "next/cache";
 import { ActivityAction, type Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { buildShareLink } from "@/lib/share-link";
 
 async function logActivity(
     userId: string,
@@ -220,7 +222,7 @@ export async function createShareLink(
 
         const file = await db.file.findFirst({
             where: { id: fileId, userId: user.id, isDeleted: false, isTrashed: false },
-            include: { shares: { select: { id: true, token: true, shareLink: true } } },
+            include: { shares: { select: { id: true, token: true } } },
         });
 
         if (!file) {
@@ -229,6 +231,7 @@ export async function createShareLink(
 
         const existingShare = file.shares[0];
         if (existingShare?.token) {
+            const shareLink = buildShareLink(existingShare.token);
             await db.share.update({
                 where: { id: existingShare.id },
                 data: {
@@ -241,24 +244,21 @@ export async function createShareLink(
             await logActivity(user.id, ActivityAction.SHARE, file.id, {
                 fileId: file.id,
                 fileName: file.fileName,
-                shareLink: existingShare.shareLink,
                 hasPassword: true,
                 expiresAt: expiresAt?.toISOString() ?? null,
             });
 
-            return { success: true, shareLink: existingShare.shareLink };
+            return { success: true, shareLink };
         }
 
-        const shareBaseUrl = process.env.SHARE_BASE_URL?.trim() || "http://localhost:3000";
-        const token = crypto.randomUUID();
-        const shareLink = `${shareBaseUrl.replace(/\/$/, "")}/s/${token}`;
+        const token = crypto.randomBytes(32).toString("hex");
+        const shareLink = buildShareLink(token);
 
         await db.share.create({
             data: {
                 fileId: file.id,
                 userId: user.id,
                 token,
-                shareLink,
                 isPublic: true,
                 password: passwordHash,
                 expiresAt,
@@ -268,7 +268,6 @@ export async function createShareLink(
         await logActivity(user.id, ActivityAction.SHARE, file.id, {
             fileId: file.id,
             fileName: file.fileName,
-            shareLink,
             hasPassword: true,
             expiresAt: expiresAt?.toISOString() ?? null,
         });

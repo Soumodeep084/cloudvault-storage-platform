@@ -132,7 +132,6 @@ model Share {
   fileId    String
   userId    String
   token     String    @unique
-  shareLink String    @unique
   password  String?
   isPublic  Boolean   @default(false)
   expiresAt DateTime?
@@ -152,7 +151,6 @@ model FolderShare {
   folderId  String
   userId    String
   token     String    @unique
-  shareLink String    @unique
   password  String?
   isPublic  Boolean   @default(false)
   expiresAt DateTime?

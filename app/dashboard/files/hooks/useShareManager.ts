@@ -8,8 +8,8 @@ import { createShareLink, revokeShareLink } from "@/app/actions/fileActions";
 import { createFolderShareLink, revokeFolderShareLink } from "@/app/actions/folderActions";
 
 export type ShareTarget =
-  | { type: "file"; item: FileItem }
-  | { type: "folder"; item: FolderItem };
+  | { type: "file"; item: FileItem; isRenewal?: boolean }
+  | { type: "folder"; item: FolderItem; isRenewal?: boolean };
 
 type ShareOptions = { password: string; expiresInMinutes: number | null };
 
@@ -31,17 +31,19 @@ export function useShareManager({
   const [isRevokingFolderShareId, setIsRevokingFolderShareId] = useState<string | null>(null);
 
   const handleShare = useCallback((file: FileItem) => {
-    const normalized = isExpiredShare(file.shareLink, file.shareExpiresAt)
+    const isExpired = isExpiredShare(file.shareLink, file.shareExpiresAt);
+    const normalized = isExpired
       ? { ...file, shareLink: undefined, shared: false, shareExpiresAt: null }
       : file;
-    setShareTarget({ type: "file", item: normalized });
+    setShareTarget({ type: "file", item: normalized, isRenewal: isExpired });
   }, []);
 
   const handleShareFolder = useCallback((folder: FolderItem) => {
-    const normalized = isExpiredShare(folder.shareLink, folder.shareExpiresAt)
+    const isExpired = isExpiredShare(folder.shareLink, folder.shareExpiresAt);
+    const normalized = isExpired
       ? { ...folder, shareLink: undefined, shared: false, shareExpiresAt: null }
       : folder;
-    setShareTarget({ type: "folder", item: normalized });
+    setShareTarget({ type: "folder", item: normalized, isRenewal: isExpired });
   }, []);
 
   const handleCreateSecureShare = useCallback(
@@ -79,7 +81,7 @@ export function useShareManager({
         setFiles((prev) =>
           prev.map((file) => (file.id === shareTarget.item.id ? updatedItem : file)),
         );
-        setShareTarget({ type: "file", item: updatedItem });
+        setShareTarget({ type: "file", item: updatedItem, isRenewal: false });
       } else {
         const updatedItem: FolderItem = {
           ...shareTarget.item,
@@ -90,7 +92,7 @@ export function useShareManager({
         setAllFolders((prev) =>
           prev.map((folder) => (folder.id === shareTarget.item.id ? updatedItem : folder)),
         );
-        setShareTarget({ type: "folder", item: updatedItem });
+        setShareTarget({ type: "folder", item: updatedItem, isRenewal: false });
       }
 
       toast.success("Secure share link created");

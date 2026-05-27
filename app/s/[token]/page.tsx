@@ -8,6 +8,9 @@ import {
   createPublicShareAccessCookieValue,
   getPublicShareAccessCookieName,
   isValidPublicShareAccessCookie,
+  bumpPublicShareAttempt,
+  getPublicShareAttemptCookieName,
+  isPublicShareAttemptRateLimited,
 } from "@/lib/public-share-access";
 
 type FolderNode = {
@@ -165,12 +168,28 @@ export default async function PublicSharePage({
       redirect(`/s/${token}`);
     }
 
+    const actionCookieStore = await cookies();
+    const attemptCookieName = getPublicShareAttemptCookieName(latestShare.id);
+    const attemptCookieValue = actionCookieStore.get(attemptCookieName)?.value;
+    const rateLimit = isPublicShareAttemptRateLimited(latestShare.id, attemptCookieValue);
+    if (rateLimit.limited) {
+      redirect(`/s/${token}?error=rate-limited`);
+    }
+
     const valid = await bcrypt.compare(passwordInput, latestShare.password);
     if (!valid) {
+      const attempt = bumpPublicShareAttempt(latestShare.id, attemptCookieValue);
+      actionCookieStore.set(attemptCookieName, attempt.value, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 15 * 60,
+        path: "/",
+      });
       redirect(`/s/${token}?error=invalid-password`);
     }
 
-    const actionCookieStore = await cookies();
+    actionCookieStore.delete(attemptCookieName);
     actionCookieStore.set(
       getPublicShareAccessCookieName(latestShare.id),
       createPublicShareAccessCookieValue(latestShare.id),
@@ -189,6 +208,8 @@ export default async function PublicSharePage({
   if (!hasAccess) {
     const errorMessage = resolvedSearchParams.error === "invalid-password"
       ? "Incorrect password. Please try again."
+      : resolvedSearchParams.error === "rate-limited"
+        ? "Too many attempts. Please wait and try again."
       : resolvedSearchParams.error === "auth-required"
         ? `Please enter the password to access this ${shareLabel}.`
         : null;

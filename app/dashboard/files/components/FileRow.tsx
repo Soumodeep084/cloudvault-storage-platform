@@ -146,7 +146,7 @@ export function FileRow({
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onShare(file)}>
               <Share2 className="mr-2 h-4 w-4" />
-              {expired ? "Renew share link" : file.shareLink ? "Share" : "Create share link"}
+              {expired ? "Renew Share Link" : file.shareLink ? "Share" : "Create Share Link"}
             </DropdownMenuItem>
             {file.shareLink && !expired && (
               <DropdownMenuItem

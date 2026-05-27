@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-help";
+import { buildShareLink } from "@/lib/share-link";
 import SharedClient from "./SharedClient";
 
 function buildChildrenMap(
@@ -60,7 +61,7 @@ export default async function SharedPage() {
     fileSize: share.file.fileSize ?? 0,
     fileType: share.file.fileType,
     updatedAt: share.file.updatedAt,
-    shareLink: share.shareLink,
+    shareLink: buildShareLink(share.token),
     expiresAt: share.expiresAt,
     sharedAt: share.createdAt,
     kind: "file" as const,
@@ -101,7 +102,7 @@ export default async function SharedPage() {
       id: share.id,
       folderId: share.folderId,
       folderName: share.folder.name,
-      shareLink: share.shareLink,
+      shareLink: buildShareLink(share.token),
       expiresAt: share.expiresAt,
       sharedAt: share.createdAt,
       fileCount,

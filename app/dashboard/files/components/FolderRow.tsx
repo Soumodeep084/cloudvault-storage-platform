@@ -121,7 +121,7 @@ export function FolderRow({
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onShare(folder)}>
               <Share2 className="mr-2 h-4 w-4" />
-              {isExpired ? "Renew share link" : folder.shareLink ? "Share" : "Create share link"}
+              {isExpired ? "Renew Share Link" : folder.shareLink ? "Share" : "Create Share Link"}
             </DropdownMenuItem>
             {folder.shareLink && !isExpired && (
               <DropdownMenuItem
