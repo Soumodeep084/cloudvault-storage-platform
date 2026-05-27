@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth-help";
 import { db } from "@/lib/prisma";
 import TrashClient from "./TrashClient";
-import { purgeExpiredTrashAction } from "@/app/actions/trashActions";
-import { Button } from "@/components/ui/button";
 
 const TRASH_RETENTION_DAYS = 30;
 

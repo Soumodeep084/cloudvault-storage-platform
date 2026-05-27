@@ -106,11 +106,25 @@ export default async function FilesPage({
   const currentFolderId =
     typeof params?.folder === "string" ? params.folder : null;
 
-  const allFolders = await db.folder.findMany({
-    where: { userId: user.id, isDeleted: false, isTrashed: false },
-    select: { id: true, name: true, parentId: true, createdAt: true, updatedAt: true },
-    orderBy: { name: "asc" },
-  });
+  const allFolders = (
+    await db.folder.findMany({
+      where: { userId: user.id, isDeleted: false, isTrashed: false },
+      select: {
+        id: true,
+        name: true,
+        parentId: true,
+        createdAt: true,
+        updatedAt: true,
+        folderShares: { select: { shareLink: true, expiresAt: true } },
+      },
+      orderBy: { name: "asc" },
+    })
+  ).map(({ folderShares, ...folder }) => ({
+    ...folder,
+    shareLink: folderShares?.[0]?.shareLink,
+    shareExpiresAt: folderShares?.[0]?.expiresAt ?? null,
+    shared: Boolean(folderShares?.length),
+  }));
 
   const folderMap = new Map(
     allFolders.map((folder) => [folder.id, folder]),

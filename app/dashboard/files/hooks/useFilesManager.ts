@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { FileItem, FolderItem } from "@/types";
 import {
-  createShareLink,
   deleteFileAction,
   moveFileAction,
   renameFileAction,
-  revokeShareLink,
 } from "@/app/actions/fileActions";
 import {
   createFolderAction,
@@ -17,6 +15,7 @@ import {
   moveFolderAction,
   renameFolderAction,
 } from "@/app/actions/folderActions";
+import { useShareManager } from "./useShareManager";
 
 function splitFileName(fileName: string) {
   const lastDotIndex = fileName.lastIndexOf(".");
@@ -57,11 +56,6 @@ export function useFilesManager({
 
   // File state
   const [files, setFiles] = useState(initialFiles);
-  const [shareFile, setShareFile] = useState<FileItem | null>(null);
-  const [isCreatingShare, setIsCreatingShare] = useState(false);
-  const [isRevokingShareId, setIsRevokingShareId] = useState<string | null>(
-    null,
-  );
   const [deleteFile, setDeleteFile] = useState<FileItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [renameFile, setRenameFile] = useState<FileItem | null>(null);
@@ -101,6 +95,20 @@ export function useFilesManager({
   useEffect(() => {
     setAllFolders(initialFolders);
   }, [initialFolders]);
+
+  const shareManager = useShareManager({ setFiles, setAllFolders });
+  const {
+    shareTarget,
+    setShareTarget,
+    isCreatingShare,
+    isRevokingShareId,
+    isRevokingFolderShareId,
+    handleShare,
+    handleShareFolder,
+    handleCreateSecureShare,
+    handleStopSharing,
+    handleStopFolderSharing,
+  } = shareManager;
 
   const folders = useMemo(
     () =>
@@ -284,21 +292,6 @@ export function useFilesManager({
     toast.success("Moved to trash");
   }, [deleteFile, resetDeleteDialog]);
 
-  const handleShare = useCallback((file: FileItem) => {
-    if (file.shareLink && file.shareExpiresAt) {
-      if (new Date(file.shareExpiresAt).getTime() < Date.now()) {
-        setShareFile({
-          ...file,
-          shareLink: undefined,
-          shared: false,
-          shareExpiresAt: null,
-        });
-        return;
-      }
-    }
-    setShareFile(file);
-  }, []);
-
   const handleRename = useCallback(async () => {
     if (!renameFile?.id) {
       toast.error("File id not found");
@@ -347,68 +340,6 @@ export function useFilesManager({
     resetRenameDialog();
     toast.success("File renamed");
   }, [renameExtension, renameFile, renameValue, resetRenameDialog]);
-
-  const handleCreateSecureShare = useCallback(
-    async (options: { password: string; expiresInMinutes: number | null }) => {
-      if (!shareFile?.id) {
-        toast.error("File id not found");
-        return;
-      }
-
-      setIsCreatingShare(true);
-      const result = await createShareLink(shareFile.id, options);
-      setIsCreatingShare(false);
-
-      if (!result.success) {
-        toast.error(result.error || "Failed to create secure share link");
-        return;
-      }
-
-      const shareExpiresAt = options.expiresInMinutes
-        ? new Date(Date.now() + options.expiresInMinutes * 60 * 1000)
-        : null;
-      const updatedFile = {
-        ...shareFile,
-        shareLink: result.shareLink,
-        shared: true,
-        shareExpiresAt,
-      };
-      setFiles((prev) =>
-        prev.map((f) => (f.id === shareFile.id ? updatedFile : f)),
-      );
-      setShareFile(updatedFile);
-      toast.success("Secure share link created");
-    },
-    [shareFile],
-  );
-
-  const handleStopSharing = useCallback(async (file: FileItem) => {
-    if (!file.id) {
-      toast.error("File id not found");
-      return;
-    }
-
-    setIsRevokingShareId(file.id);
-    const result = await revokeShareLink(file.id);
-    setIsRevokingShareId(null);
-
-    if (!result.success) {
-      toast.error(result.error || "Failed to stop sharing");
-      return;
-    }
-
-    setFiles((prev) =>
-      prev.map((f) =>
-        f.id === file.id ? { ...f, shareLink: undefined, shared: false } : f,
-      ),
-    );
-
-    if (shareFile?.id === file.id) {
-      setShareFile(null);
-    }
-
-    toast.success("Share link stopped");
-  }, [shareFile]);
 
   const handleCreateFolder = useCallback(async () => {
     const nextName = createFolderName.trim();
@@ -599,46 +530,61 @@ export function useFilesManager({
     setDragOverFolderId((current) => (current === folderId ? null : current));
   }, []);
 
+  const readDraggedIds = useCallback((event: React.DragEvent) => {
+    const draggedFolderId = event.dataTransfer.getData("application/x-cloudvault-folder");
+    const draggedFileId =
+      event.dataTransfer.getData("application/x-cloudvault-file") ||
+      event.dataTransfer.getData("text/plain");
+
+    return { draggedFolderId, draggedFileId };
+  }, []);
+
+  const moveFolderWithFeedback = useCallback(
+    async (folderId: string, destinationId: string | null, successMessage: string) => {
+      const result = await moveFolderAction(folderId, destinationId);
+      if (!result.success) {
+        toast.error(result.error || "Failed to move folder");
+        return false;
+      }
+
+      setAllFolders((prev) =>
+        prev.map((item) => (item.id === folderId ? { ...item, parentId: destinationId } : item)),
+      );
+      toast.success(successMessage);
+      return true;
+    },
+    [],
+  );
+
+  const moveFileWithFeedback = useCallback(async (fileId: string, destinationId: string | null, successMessage: string) => {
+    const result = await moveFileAction(fileId, destinationId);
+    if (!result.success) {
+      toast.error(result.error || "Failed to move file");
+      return false;
+    }
+
+    setFiles((prev) => prev.filter((file) => file.id !== fileId));
+    toast.success(successMessage);
+    return true;
+  }, []);
+
   const handleFolderDrop = useCallback(
     async (event: React.DragEvent<HTMLTableRowElement>, folder: FolderItem) => {
       event.preventDefault();
       setDragOverFolderId(null);
-      const draggedFolderId = event.dataTransfer.getData(
-        "application/x-cloudvault-folder",
-      );
-      const draggedFileId =
-        event.dataTransfer.getData("application/x-cloudvault-file") ||
-        event.dataTransfer.getData("text/plain");
+      const { draggedFolderId, draggedFileId } = readDraggedIds(event);
 
       if (draggedFolderId) {
         if (draggedFolderId === folder.id) return;
-        const result = await moveFolderAction(draggedFolderId, folder.id);
-        if (!result.success) {
-          toast.error(result.error || "Failed to move folder");
-          return;
-        }
-
-        setAllFolders((prev) =>
-          prev.map((item) =>
-            item.id === draggedFolderId ? { ...item, parentId: folder.id } : item,
-          ),
-        );
-        toast.success(`Moved to ${folder.name}`);
+        await moveFolderWithFeedback(draggedFolderId, folder.id, `Moved to ${folder.name}`);
         return;
       }
 
       if (!draggedFileId) return;
 
-      const result = await moveFileAction(draggedFileId, folder.id);
-      if (!result.success) {
-        toast.error(result.error || "Failed to move file");
-        return;
-      }
-
-      setFiles((prev) => prev.filter((file) => file.id !== draggedFileId));
-      toast.success(`Moved to ${folder.name}`);
+      await moveFileWithFeedback(draggedFileId, folder.id, `Moved to ${folder.name}`);
     },
-    [],
+    [moveFileWithFeedback, moveFolderWithFeedback, readDraggedIds],
   );
 
   const handleRootDragOver = useCallback(
@@ -657,40 +603,17 @@ export function useFilesManager({
   const handleRootDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setDragOverTarget((current) => (current === "root" ? null : current));
-    const draggedFolderId = event.dataTransfer.getData(
-      "application/x-cloudvault-folder",
-    );
-    const draggedFileId =
-      event.dataTransfer.getData("application/x-cloudvault-file") ||
-      event.dataTransfer.getData("text/plain");
+    const { draggedFolderId, draggedFileId } = readDraggedIds(event);
 
     if (draggedFolderId) {
-      const result = await moveFolderAction(draggedFolderId, null);
-      if (!result.success) {
-        toast.error(result.error || "Failed to move folder");
-        return;
-      }
-
-      setAllFolders((prev) =>
-        prev.map((item) =>
-          item.id === draggedFolderId ? { ...item, parentId: null } : item,
-        ),
-      );
-      toast.success("Moved to root");
+      await moveFolderWithFeedback(draggedFolderId, null, "Moved to root");
       return;
     }
 
     if (!draggedFileId) return;
 
-    const result = await moveFileAction(draggedFileId, null);
-    if (!result.success) {
-      toast.error(result.error || "Failed to move file");
-      return;
-    }
-
-    setFiles((prev) => prev.filter((file) => file.id !== draggedFileId));
-    toast.success("Moved to root");
-  }, []);
+    await moveFileWithFeedback(draggedFileId, null, "Moved to root");
+  }, [moveFileWithFeedback, moveFolderWithFeedback, readDraggedIds]);
 
   const handleParentDragOver = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
@@ -709,41 +632,18 @@ export function useFilesManager({
     async (event: React.DragEvent<HTMLDivElement>, parentId: string | null) => {
       event.preventDefault();
       setDragOverTarget((current) => (current === "parent" ? null : current));
-      const draggedFolderId = event.dataTransfer.getData(
-        "application/x-cloudvault-folder",
-      );
-      const draggedFileId =
-        event.dataTransfer.getData("application/x-cloudvault-file") ||
-        event.dataTransfer.getData("text/plain");
+      const { draggedFolderId, draggedFileId } = readDraggedIds(event);
 
       if (draggedFolderId) {
-        const result = await moveFolderAction(draggedFolderId, parentId);
-        if (!result.success) {
-          toast.error(result.error || "Failed to move folder");
-          return;
-        }
-
-        setAllFolders((prev) =>
-          prev.map((item) =>
-            item.id === draggedFolderId ? { ...item, parentId } : item,
-          ),
-        );
-        toast.success("Moved to parent");
+        await moveFolderWithFeedback(draggedFolderId, parentId, "Moved to parent");
         return;
       }
 
       if (!draggedFileId) return;
 
-      const result = await moveFileAction(draggedFileId, parentId);
-      if (!result.success) {
-        toast.error(result.error || "Failed to move file");
-        return;
-      }
-
-      setFiles((prev) => prev.filter((file) => file.id !== draggedFileId));
-      toast.success("Moved to parent");
+      await moveFileWithFeedback(draggedFileId, parentId, "Moved to parent");
     },
-    [],
+    [moveFileWithFeedback, moveFolderWithFeedback, readDraggedIds],
   );
 
   return {
@@ -753,10 +653,6 @@ export function useFilesManager({
     folderMap,
     childrenMap,
     folderPathMap,
-    shareFile,
-    setShareFile,
-    isCreatingShare,
-    isRevokingShareId,
     deleteFile,
     isDeleting,
     renameFile,
@@ -799,9 +695,11 @@ export function useFilesManager({
     openDeleteDialog,
     handleDelete,
     handleShare,
+    handleShareFolder,
     handleRename,
     handleCreateSecureShare,
     handleStopSharing,
+    handleStopFolderSharing,
     handleCreateFolder,
     handleRenameFolder,
     handleDeleteFolder,
@@ -825,5 +723,10 @@ export function useFilesManager({
     handleParentDragOver,
     handleParentDragLeave,
     handleParentDrop,
+    shareTarget,
+    isCreatingShare,
+    isRevokingShareId,
+    isRevokingFolderShareId,
+    setShareTarget,
   };
 }

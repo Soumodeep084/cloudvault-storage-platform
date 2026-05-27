@@ -24,7 +24,10 @@ import { ShareModal } from "@/components/DashboardComponents/ShareModal";
 import type { FileItem, FolderItem } from "@/types";
 
 export type FilesDialogsProps = {
-  shareFile: FileItem | null;
+  shareTarget:
+    | { type: "file"; item: FileItem }
+    | { type: "folder"; item: FolderItem }
+    | null;
   isCreatingShare: boolean;
   onShareOpenChange: (open: boolean) => void;
   onCreateSecureShare: (options: { password: string; expiresInMinutes: number | null }) => Promise<void>;
@@ -74,7 +77,7 @@ export type FilesDialogsProps = {
 };
 
 export function FilesDialogs({
-  shareFile,
+  shareTarget,
   isCreatingShare,
   onShareOpenChange,
   onCreateSecureShare,
@@ -115,6 +118,13 @@ export function FilesDialogs({
   renameAlertMessage,
   onRenameAlertClose,
 }: FilesDialogsProps) {
+  const shareItemName = shareTarget
+    ? shareTarget.type === "folder"
+      ? shareTarget.item.name
+      : shareTarget.item.name || shareTarget.item.fileName || ""
+    : "";
+  const shareItemLabel = shareTarget?.type === "folder" ? "folder" : "file";
+
   const handleEnter = (
     event: KeyboardEvent<HTMLInputElement>,
     handler: () => void,
@@ -129,11 +139,12 @@ export function FilesDialogs({
   return (
     <>
       <ShareModal
-        open={!!shareFile}
+        open={!!shareTarget}
         onOpenChange={onShareOpenChange}
-        fileName={shareFile ? shareFile.name || shareFile.fileName || "" : ""}
-        shareLink={shareFile?.shareLink}
-        expiresAt={shareFile?.shareExpiresAt}
+        fileName={shareItemName}
+        shareLink={shareTarget?.item.shareLink}
+        expiresAt={shareTarget?.item.shareExpiresAt}
+        itemLabel={shareItemLabel}
         onCreateSecureLink={onCreateSecureShare}
         isCreating={isCreatingShare}
       />

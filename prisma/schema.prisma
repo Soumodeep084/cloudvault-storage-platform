@@ -45,6 +45,7 @@ model User {
   files    File[]
   folders  Folder[]
   shares   Share[]
+  folderShares FolderShare[]
   tokens   Token[]
   sessions Session[]
   activities Activity[]
@@ -119,6 +120,7 @@ model Folder {
   parent   Folder?  @relation("FolderToFolder", fields: [parentId], references: [id], onDelete: Cascade)
   children Folder[] @relation("FolderToFolder")
   files    File[]
+  folderShares FolderShare[]
 
   @@index([userId])
   @@index([parentId])
@@ -142,6 +144,25 @@ model Share {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([fileId])
+  @@index([userId])
+}
+
+model FolderShare {
+  id        String    @id @default(uuid())
+  folderId  String
+  userId    String
+  token     String    @unique
+  shareLink String    @unique
+  password  String?
+  isPublic  Boolean   @default(false)
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  folder Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([folderId])
   @@index([userId])
 }
 

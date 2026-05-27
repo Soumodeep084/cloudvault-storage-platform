@@ -190,11 +190,14 @@ export default function FilesClient({
                         currentParentId: item.parentId ?? null,
                       })
                     }
+                    onShare={manager.handleShareFolder}
+                    onStopSharing={manager.handleStopFolderSharing}
                     onDelete={manager.setDeleteFolder}
                     onDragStart={manager.handleFolderDragStart}
                     onDragOver={(event) => manager.handleFolderDragOver(event, folder.id)}
                     onDragLeave={() => manager.handleFolderDragLeave(folder.id)}
                     onDrop={(event) => manager.handleFolderDrop(event, folder)}
+                    isRevokingShareId={manager.isRevokingFolderShareId}
                   />
                 ))}
 
@@ -227,10 +230,10 @@ export default function FilesClient({
       )}
 
       <FilesDialogs
-        shareFile={manager.shareFile}
+        shareTarget={manager.shareTarget}
         isCreatingShare={manager.isCreatingShare}
         onShareOpenChange={(open) => {
-          if (!open) manager.setShareFile(null);
+          if (!open) manager.setShareTarget(null);
         }}
         onCreateSecureShare={manager.handleCreateSecureShare}
         renameFile={manager.renameFile}

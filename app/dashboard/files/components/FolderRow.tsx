@@ -1,4 +1,4 @@
-import { Folder, MoreHorizontal, Pencil, Trash2, ArrowRightLeft } from "lucide-react";
+import { Folder, MoreHorizontal, Pencil, Trash2, ArrowRightLeft, Share2, Link2Off } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,12 +19,15 @@ export type FolderRowProps = {
   onCreateInside: (folderId: string) => void;
   onRename: (folder: FolderItem) => void;
   onMove: (folder: FolderItem) => void;
+  onShare: (folder: FolderItem) => void;
+  onStopSharing: (folder: FolderItem) => void;
   onDelete: (folder: FolderItem) => void;
   onDragStart: (event: React.DragEvent<HTMLTableRowElement>, folder: FolderItem) => void;
   onDragOver: (event: React.DragEvent<HTMLTableRowElement>) => void;
   onDragLeave: () => void;
   onDrop: (event: React.DragEvent<HTMLTableRowElement>) => void;
   status: "private" | "shared" | "expired";
+  isRevokingShareId: string | null;
 };
 
 export function FolderRow({
@@ -35,13 +38,18 @@ export function FolderRow({
   onCreateInside,
   onRename,
   onMove,
+  onShare,
+  onStopSharing,
   onDelete,
   onDragStart,
   onDragOver,
   onDragLeave,
   onDrop,
   status,
+  isRevokingShareId,
 }: FolderRowProps) {
+  // const isShared = status === "shared";
+  const isExpired = status === "expired";
   return (
     <TableRow
       className={`group border-border/60 hover:bg-muted/30 transition-colors ${
@@ -111,6 +119,20 @@ export function FolderRow({
             <DropdownMenuItem onClick={() => onMove(folder)}>
               <ArrowRightLeft className="mr-2 h-4 w-4" /> Move
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onShare(folder)}>
+              <Share2 className="mr-2 h-4 w-4" />
+              {isExpired ? "Renew share link" : folder.shareLink ? "Share" : "Create share link"}
+            </DropdownMenuItem>
+            {folder.shareLink && !isExpired && (
+              <DropdownMenuItem
+                onClick={() => onStopSharing(folder)}
+                disabled={isRevokingShareId === folder.id}
+                className="text-amber-700 focus:bg-amber-50 focus:text-amber-700"
+              >
+                <Link2Off className="mr-2 h-4 w-4" />
+                {isRevokingShareId === folder.id ? "Stopping..." : "Stop sharing"}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onClick={() => onDelete(folder)}
               className="text-destructive focus:bg-destructive/10 focus:text-destructive"

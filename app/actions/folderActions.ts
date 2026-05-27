@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-help";
+import { ActivityAction } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 function normalizeFolderName(name: string) {
   return name.trim();
@@ -306,5 +309,158 @@ export async function deleteFolderAction(folderId: string) {
   } catch (error) {
     console.error("Delete folder error:", error);
     return { success: false, error: "Unable to delete folder" };
+  }
+}
+
+export async function createFolderShareLink(
+  folderId: string,
+  options?: {
+    password?: string;
+    expiresInMinutes?: number | null;
+  },
+) {
+  try {
+    const user = await getSessionUser();
+    if (!user) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const normalizedPassword = options?.password?.trim();
+    if (!normalizedPassword || normalizedPassword.length < 6) {
+      return { success: false, error: "Password must be at least 6 characters" };
+    }
+
+    const expiresInMinutes = options?.expiresInMinutes ?? null;
+    if (typeof expiresInMinutes === "number") {
+      if (!Number.isFinite(expiresInMinutes) || expiresInMinutes <= 0) {
+        return { success: false, error: "Expiry must be greater than zero" };
+      }
+      if (expiresInMinutes > 10080) {
+        return { success: false, error: "Expiry cannot exceed 7 days" };
+      }
+    }
+
+    const expiresAt = expiresInMinutes && expiresInMinutes > 0
+      ? new Date(Date.now() + expiresInMinutes * 60 * 1000)
+      : null;
+
+    const passwordHash = await bcrypt.hash(normalizedPassword, 10);
+
+    const folder = await db.folder.findFirst({
+      where: { id: folderId, userId: user.id, isDeleted: false, isTrashed: false },
+      include: { folderShares: { select: { id: true, token: true, shareLink: true } } },
+    });
+
+    if (!folder) {
+      return { success: false, error: "Folder not found" };
+    }
+
+    const existingShare = folder.folderShares[0];
+    if (existingShare?.token) {
+      await db.folderShare.update({
+        where: { id: existingShare.id },
+        data: {
+          password: passwordHash,
+          expiresAt,
+          isPublic: true,
+        },
+      });
+
+      await db.activity.create({
+        data: {
+          userId: user.id,
+          action: ActivityAction.SHARE,
+          fileId: null,
+          metadata: {
+            kind: "folder-share",
+            folderId: folder.id,
+            folderName: folder.name,
+            shareLink: existingShare.shareLink,
+            hasPassword: true,
+            expiresAt: expiresAt?.toISOString() ?? null,
+          },
+        },
+      });
+
+      return { success: true, shareLink: existingShare.shareLink };
+    }
+
+    const shareBaseUrl = process.env.SHARE_BASE_URL?.trim() || "http://localhost:3000";
+    const token = crypto.randomUUID();
+    const shareLink = `${shareBaseUrl.replace(/\/$/, "")}/s/${token}`;
+
+    await db.folderShare.create({
+      data: {
+        folderId: folder.id,
+        userId: user.id,
+        token,
+        shareLink,
+        isPublic: true,
+        password: passwordHash,
+        expiresAt,
+      },
+    });
+
+    await db.activity.create({
+      data: {
+        userId: user.id,
+        action: ActivityAction.SHARE,
+        fileId: null,
+        metadata: {
+          kind: "folder-share",
+          folderId: folder.id,
+          folderName: folder.name,
+          shareLink,
+          hasPassword: true,
+          expiresAt: expiresAt?.toISOString() ?? null,
+        },
+      },
+    });
+
+    revalidatePath("/dashboard/shared");
+    revalidatePath("/dashboard/history");
+
+    return { success: true, shareLink };
+  } catch (error) {
+    console.error("Create folder share link error:", error);
+    return { success: false, error: "Unable to create folder share link" };
+  }
+}
+
+export async function revokeFolderShareLink(folderId: string) {
+  try {
+    const user = await getSessionUser();
+    if (!user) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const folder = await db.folder.findFirst({
+      where: { id: folderId, userId: user.id, isDeleted: false, isTrashed: false },
+      select: { id: true },
+    });
+
+    if (!folder) {
+      return { success: false, error: "Folder not found" };
+    }
+
+    const existingShare = await db.folderShare.findFirst({
+      where: { folderId: folder.id, userId: user.id },
+      select: { id: true },
+    });
+
+    if (!existingShare) {
+      return { success: false, error: "Share link not found" };
+    }
+
+    await db.folderShare.delete({ where: { id: existingShare.id } });
+
+    revalidatePath("/dashboard/files");
+    revalidatePath("/dashboard/shared");
+    revalidatePath("/dashboard/history");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Revoke folder share link error:", error);
+    return { success: false, error: "Unable to revoke folder share link" };
   }
 }

@@ -18,6 +18,7 @@ interface ShareModalProps {
   fileName: string;
   shareLink?: string;
   expiresAt?: string | Date | null;
+  itemLabel?: "file" | "folder";
   onCreateSecureLink: (options: {
     password: string;
     expiresInMinutes: number | null;
@@ -31,9 +32,11 @@ export function ShareModal({
   fileName,
   shareLink,
   expiresAt,
+  itemLabel = "file",
   onCreateSecureLink,
   isCreating = false,
 }: ShareModalProps) {
+  const safeName = fileName.trim() ? fileName : `Untitled ${itemLabel}`;
   const [copied, setCopied] = useState(false);
   const [password, setPassword] = useState("");
   const [expiryPreset, setExpiryPreset] = useState("10");
@@ -167,7 +170,7 @@ export function ShareModal({
               <Link2 className="h-5 w-5 text-primary" /> Secure Share
             </DialogTitle>
             <DialogDescription className="pt-2 text-sm">
-              Share <span className="font-semibold text-foreground">&quot;{fileName}&quot;</span> with password and expiry control.
+              Share this {itemLabel} <span className="font-semibold text-foreground">&quot;{safeName}&quot;</span> with password and expiry control.
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -271,7 +274,7 @@ export function ShareModal({
           ) : (
             <>
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-                Secure share link is ready. Receiver must use your password to access the file.
+                Secure share link is ready. Receiver must use your password to access the {itemLabel}.
               </div>
 
               <div className="flex items-center gap-2">
