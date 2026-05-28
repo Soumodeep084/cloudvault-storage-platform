@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment, useCallback, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -61,12 +62,30 @@ export default function FilesClient({
     breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 2].id : null;
 
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const handlePreviewOpen = useCallback((file: FileItem) => {
     setPreviewFile(file);
   }, []);
   const handlePreviewOpenChange = useCallback((open: boolean) => {
     if (!open) setPreviewFile(null);
   }, []);
+
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+
+  const filteredFolders = useMemo(() => {
+    if (!normalizedSearchTerm) return manager.folders;
+    return manager.folders.filter((folder) => folder.name.toLowerCase().includes(normalizedSearchTerm));
+  }, [manager.folders, normalizedSearchTerm]);
+
+  const filteredFiles = useMemo(() => {
+    if (!normalizedSearchTerm) return manager.files;
+    return manager.files.filter((file) => {
+      const name = (file.name || file.fileName || "").toLowerCase();
+      return name.includes(normalizedSearchTerm);
+    });
+  }, [manager.files, normalizedSearchTerm]);
+
+  const hasSearchResults = filteredFolders.length + filteredFiles.length > 0;
 
   return (
     <div className="space-y-6">
@@ -119,6 +138,26 @@ export default function FilesClient({
             <Plus className="h-4 w-4" /> Create folder
           </Button>
         </div>
+
+        <div className="relative max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search files and folders"
+            className="h-11 pl-9 pr-10"
+          />
+          {searchTerm ? (
+            <button
+              type="button"
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {manager.hasItems && parentFolderId && (
@@ -158,6 +197,13 @@ export default function FilesClient({
             Upload files or create folders to get started.
           </p>
         </div>
+      ) : !hasSearchResults ? (
+        <div className="flex flex-col items-center justify-center py-24 border-2 border-dashed rounded-xl border-muted">
+          <p className="text-lg font-medium">No results found</p>
+          <p className="text-sm text-muted-foreground">
+            Try a different search term.
+          </p>
+        </div>
       ) : (
         <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
@@ -172,7 +218,7 @@ export default function FilesClient({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {manager.folders.map((folder) => (
+                {filteredFolders.map((folder) => (
                   <FolderRow
                     key={folder.id}
                     folder={folder}
@@ -180,6 +226,7 @@ export default function FilesClient({
                     status={getFolderStatus(folder)}
                     isDragOver={manager.dragOverFolderId === folder.id}
                     onOpen={manager.openFolder}
+                    onDownload={manager.handleDownloadFolder}
                     onCreateInside={manager.openCreateFolderDialog}
                     onRename={manager.openRenameFolderDialog}
                     onMove={(item) =>
@@ -201,7 +248,7 @@ export default function FilesClient({
                   />
                 ))}
 
-                {manager.files.map((file) => (
+                {filteredFiles.map((file) => (
                   <FileRow
                     key={file.id}
                     file={file}

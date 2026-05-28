@@ -208,6 +208,21 @@ export function useFilesManager({
     toast.success("Download started");
   }, []);
 
+  const handleDownloadFolder = useCallback((folder: FolderItem) => {
+    if (!folder.id) {
+      toast.error("Folder id not found");
+      return;
+    }
+
+    const anchor = document.createElement("a");
+    anchor.href = `/api/folders/${folder.id}/download`;
+    anchor.rel = "noopener noreferrer";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    toast.success("Folder download started");
+  }, []);
+
   const openRenameDialog = useCallback((file: FileItem) => {
     const { baseName, extension } = splitFileName(
       file.name || file.fileName || "Untitled file",
@@ -683,6 +698,7 @@ export function useFilesManager({
     moveOptions,
     openFolder,
     handleDownload,
+    handleDownloadFolder,
     openRenameDialog,
     resetRenameDialog,
     openRenameFolderDialog,

@@ -86,7 +86,8 @@ export function ShareModal({
       return { minutes: null, error: "Enter a positive number" };
     }
 
-    const minutes = unit === "sec" ? rawValue / 60 : unit === "hr" ? rawValue * 60 : rawValue;
+    const minutes =
+      unit === "sec" ? rawValue / 60 : unit === "hr" ? rawValue * 60 : rawValue;
     if (minutes > 10080) {
       return { minutes: null, error: "Maximum expiry is 7 days" };
     }
@@ -176,7 +177,11 @@ export function ShareModal({
               <Link2 className="h-5 w-5 text-primary" /> Secure Share
             </DialogTitle>
             <DialogDescription className="pt-2 text-sm">
-              Share this {itemLabel} <span className="font-semibold text-foreground">&quot;{safeName}&quot;</span> with password and expiry control.
+              Share this {itemLabel}{" "}
+              <span className="font-semibold text-foreground">
+                &quot;{safeName}&quot;
+              </span>{" "}
+              with password and expiry control.
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -201,10 +206,16 @@ export function ShareModal({
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-700"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                     disabled={isCreating}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -252,7 +263,10 @@ export function ShareModal({
                       <select
                         value={customUnit}
                         onChange={(e) => {
-                          const nextUnit = e.target.value as "sec" | "min" | "hr";
+                          const nextUnit = e.target.value as
+                            | "sec"
+                            | "min"
+                            | "hr";
                           setCustomUnit(nextUnit);
                           setExpiryError(null);
                           updateExpiryPreview({ customUnit: nextUnit });
@@ -282,14 +296,6 @@ export function ShareModal({
 
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={isCreating}
-                  className="h-10 flex-1"
-                >
-                  Close
-                </Button>
-                <Button
                   onClick={handleCreate}
                   disabled={isCreating || !isValidPassword}
                   className="h-10 flex-1"
@@ -307,7 +313,8 @@ export function ShareModal({
           ) : (
             <>
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-                Secure share link is ready. Receiver must use your password to access the {itemLabel}.
+                Secure share link is ready. Receiver must use your password to
+                access the {itemLabel}.
               </div>
 
               <div className="flex items-center gap-2">
@@ -325,13 +332,11 @@ export function ShareModal({
                 </div>
                 <Button onClick={handleCopy} size="sm" className="px-3">
                   <span className="sr-only">Copy</span>
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-
-              <div className="flex justify-end">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>
-                  Close
+                  {copied ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             </>

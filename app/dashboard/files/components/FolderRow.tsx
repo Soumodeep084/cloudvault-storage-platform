@@ -1,4 +1,4 @@
-import { Folder, MoreHorizontal, Pencil, Trash2, ArrowRightLeft, Share2, Link2Off } from "lucide-react";
+import { Download, Folder, MoreHorizontal, Pencil, Trash2, ArrowRightLeft, Share2, Link2Off } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ export type FolderRowProps = {
   sizeBytes: number;
   isDragOver: boolean;
   onOpen: (folderId: string) => void;
+  onDownload: (folder: FolderItem) => void;
   onCreateInside: (folderId: string) => void;
   onRename: (folder: FolderItem) => void;
   onMove: (folder: FolderItem) => void;
@@ -35,6 +36,7 @@ export function FolderRow({
   sizeBytes,
   isDragOver,
   onOpen,
+  onDownload,
   onCreateInside,
   onRename,
   onMove,
@@ -112,6 +114,9 @@ export function FolderRow({
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onOpen(folder.id)}>
               <Folder className="mr-2 h-4 w-4" /> Open Folder
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onDownload(folder)}>
+              <Download className="mr-2 h-4 w-4" /> Download ZIP
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onRename(folder)}>
               <Pencil className="mr-2 h-4 w-4" /> Rename Folder

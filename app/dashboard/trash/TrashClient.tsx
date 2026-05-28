@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Folder, Trash2, Undo2 } from "lucide-react";
+import { Folder, Trash2, Undo2, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TableCell } from "@/components/ui/table";
 import {
@@ -51,6 +52,7 @@ export default function TrashClient({
 }: TrashClientProps) {
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [confirmAction, setConfirmAction] = useState<
     | { type: "restore" | "delete"; entry: TrashEntry }
     | null
@@ -70,6 +72,19 @@ export default function TrashClient({
       return bDate - aDate;
     });
   }, [entries]);
+
+  const filteredEntries = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return sortedEntries;
+
+    return sortedEntries.filter((entry) => {
+      const name =
+        entry.kind === "folder"
+          ? entry.item.name
+          : entry.item.fileName || entry.item.name || "";
+      return name.toLowerCase().includes(term);
+    });
+  }, [searchTerm, sortedEntries]);
 
   // entries are derived from props (files/folders) and `removedIds`
 
@@ -116,6 +131,32 @@ export default function TrashClient({
 
   return (
     <div className="space-y-4">
+      <div className="relative max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder="Search trash"
+          className="h-11 pl-9 pr-10"
+        />
+        {searchTerm ? (
+          <button
+            type="button"
+            onClick={() => setSearchTerm("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
+            aria-label="Clear search"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+
+      {filteredEntries.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-muted py-24">
+          <p className="text-lg font-medium">No results found</p>
+          <p className="text-sm text-muted-foreground">Try a different search term.</p>
+        </div>
+      ) : (
       <div className="rounded-xl border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
           <Table className="bg-white">
@@ -129,7 +170,7 @@ export default function TrashClient({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedEntries.map((entry) => {
+              {filteredEntries.map((entry) => {
                 const remainingDays = getRemainingDays(entry.item.trashedDate, retentionDays);
                 const isBusy = busyId === entry.item.id;
                 const itemName =
@@ -203,6 +244,7 @@ export default function TrashClient({
           </Table>
         </div>
       </div>
+      )}
 
       <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
         <AlertDialogContent>
