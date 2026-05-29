@@ -180,12 +180,13 @@ model Activity {
   @@index([createdAt])
 }
 
+model SystemLog {
+  id           String   @id @default(uuid())
+  action       String
+  targetUserId String?
+  targetEmail  String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
 
-model SystemStat {
-  id               String @id @default(uuid())
-  totalUsers       Int    @default(0)
-  totalFiles       Int    @default(0)
-  totalStorageUsed Float  @default(0)
-
-  updatedAt DateTime @updatedAt
+  @@index([createdAt])
 }

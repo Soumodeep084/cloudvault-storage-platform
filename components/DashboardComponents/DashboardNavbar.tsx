@@ -1,7 +1,7 @@
 "use client";
 
-import { Search, Bell, Moon, Sun, LogOut, Settings } from "lucide-react";
-import { useTheme } from "next-themes"; // Better to use next-themes standard
+import { Moon, Sun, LogOut, Settings } from "lucide-react";
+import { useTheme } from "next-themes";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,8 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
-import { logoutAction } from "@/app/actions/userActions"; // Import logout
+import { logoutAction } from "@/app/actions/userActions";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -41,7 +40,7 @@ export function DashboardNavbar({ user }: NavbarProps) {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-white flex items-center px-4 gap-4 sticky top-0 z-30">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/70 bg-background/80 px-4 shadow-sm backdrop-blur-xl supports-backdrop-filter:bg-background/70">
       <SidebarTrigger className="shrink-0" variant="subtle" />
 
       <div className="flex items-center gap-2 ml-auto">
@@ -49,6 +48,7 @@ export function DashboardNavbar({ user }: NavbarProps) {
           variant="subtle"
           size="icon"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          aria-label="Toggle theme"
         >
           <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />

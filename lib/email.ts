@@ -34,6 +34,16 @@ type SendDeletionScheduledEmailInput = {
   scheduledFor: Date;
 };
 
+type SendAdminAccountRestoredEmailInput = {
+  to: string;
+  name?: string | null;
+};
+
+type SendAdminAccountPermanentlyDeletedEmailInput = {
+  to: string;
+  name?: string | null;
+};
+
 function getRequiredEnv(name: string) {
   const value = process.env[name];
   if (!value) {
@@ -225,6 +235,59 @@ function buildDeletionScheduledEmailText(scheduledFor: Date, supportEmail: strin
   ].join("\n");
 }
 
+function buildAdminAccountRestoredEmailHtml(name: string | null | undefined) {
+  const greeting = name ? `Hi ${name},` : "Hi,";
+  const signature = process.env.EMAIL_SIGNATURE || "- CloudVault Team";
+  const supportEmail = process.env.EMAIL_SUPPORT || process.env.EMAIL_FROM || process.env.GMAIL_USER || "support@cloudvault.app";
+
+  return `
+    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
+      <p>${greeting}</p>
+      <p>Your CloudVault account has been restored by an administrator.</p>
+      <p>You can sign in and continue using your files and folders as usual.</p>
+      <p>If you did not expect this change, please contact support: <a href="mailto:${supportEmail}">${supportEmail}</a></p>
+      <p style="color: #b91c1c; font-weight: 600;">This is a system-generated email. Please do not reply.</p>
+      <p>${signature}</p>
+    </div>
+  `;
+}
+
+function buildAdminAccountRestoredEmailText(supportEmail: string) {
+  const signature = process.env.EMAIL_SIGNATURE || "- CloudVault Team";
+  return [
+    "Your CloudVault account has been restored by an administrator.",
+    "You can sign in and continue using your files and folders as usual.",
+    `If you did not expect this change, please contact support: ${supportEmail}`,
+    signature,
+  ].join("\n");
+}
+
+function buildAdminAccountPermanentlyDeletedEmailHtml(name: string | null | undefined, supportEmail: string) {
+  const greeting = name ? `Hi ${name},` : "Hi,";
+  const signature = process.env.EMAIL_SIGNATURE || "- CloudVault Team";
+
+  return `
+    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
+      <p>${greeting}</p>
+      <p>Your CloudVault account has been permanently deleted by an administrator.</p>
+      <p>This action cannot be undone, and access to the account is no longer available.</p>
+      <p>If you believe this happened in error, please contact support: <a href="mailto:${supportEmail}">${supportEmail}</a></p>
+      <p style="color: #b91c1c; font-weight: 600;">This is a system-generated email. Please do not reply.</p>
+      <p>${signature}</p>
+    </div>
+  `;
+}
+
+function buildAdminAccountPermanentlyDeletedEmailText(supportEmail: string) {
+  const signature = process.env.EMAIL_SIGNATURE || "- CloudVault Team";
+  return [
+    "Your CloudVault account has been permanently deleted by an administrator.",
+    "This action cannot be undone, and access to the account is no longer available.",
+    `If you believe this happened in error, please contact support: ${supportEmail}`,
+    signature,
+  ].join("\n");
+}
+
 export async function sendVerificationEmail({
   to,
   name,
@@ -313,5 +376,39 @@ export async function sendDeletionScheduledEmail({
     subject: "Your CloudVault account is scheduled for deletion",
     text: buildDeletionScheduledEmailText(scheduledFor, supportEmail),
     html: buildDeletionScheduledEmailHtml(name, scheduledFor, supportEmail),
+  });
+}
+
+export async function sendAdminAccountRestoredEmail({
+  to,
+  name,
+}: SendAdminAccountRestoredEmailInput) {
+  const transporter = getTransporter();
+  const from = process.env.EMAIL_FROM || process.env.GMAIL_USER || "CloudVault <no-reply@cloudvault.app>";
+  const supportEmail = process.env.EMAIL_SUPPORT || process.env.EMAIL_FROM || process.env.GMAIL_USER || "support@cloudvault.app";
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: "Your CloudVault account has been restored",
+    text: buildAdminAccountRestoredEmailText(supportEmail),
+    html: buildAdminAccountRestoredEmailHtml(name),
+  });
+}
+
+export async function sendAdminAccountPermanentlyDeletedEmail({
+  to,
+  name,
+}: SendAdminAccountPermanentlyDeletedEmailInput) {
+  const transporter = getTransporter();
+  const from = process.env.EMAIL_FROM || process.env.GMAIL_USER || "CloudVault <no-reply@cloudvault.app>";
+  const supportEmail = process.env.EMAIL_SUPPORT || process.env.EMAIL_FROM || process.env.GMAIL_USER || "support@cloudvault.app";
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: "Your CloudVault account has been permanently deleted",
+    text: buildAdminAccountPermanentlyDeletedEmailText(supportEmail),
+    html: buildAdminAccountPermanentlyDeletedEmailHtml(name, supportEmail),
   });
 }

@@ -1,22 +1,6 @@
-"use client";
-
-import {
-  Users,
-  Files,
-  HardDrive,
-  Activity,
-  TrendingUp,
-  Share2,
-} from "lucide-react";
-import {
-  adminStats,
-  mockUsers,
-  storageChartData,
-  fileTypeDistribution,
-} from "@/lib/mock-data";
-import { formatFileSize } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -25,264 +9,453 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+  FileText,
+  HardDrive,
+  RefreshCw,
+  UserX,
+  Users,
+} from "lucide-react";
+import { getSessionUser } from "@/lib/auth-help";
+import { formatFileSize } from "@/lib/utils";
+import { AdminRefreshButton } from "./refresh-button";
+import { AdminUserActions } from "./user-actions";
+import { DataCard, Pager, StatCard } from "./admin-components";
+import { getAdminDashboardData } from "@/lib/admin-queries";
+import type {
+  AdminDashboardData,
+  AdminSearchParamsInput,
+} from "@/lib/admin-types";
+import {
+  buildAdminHref,
+  formatDateSafe,
+  formatLogAction,
+  getLogActionTone,
+  getLogMetadataNumber,
+  getLogMetadataValue,
+  getPageCount,
+  getPageOffset,
+  normalizeAdminSearchParams,
+} from "@/lib/admin-utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export default function AdminPage() {
-  const stats = [
-    {
-      label: "Total Users",
-      value: adminStats.totalUsers.toLocaleString(),
-      icon: Users,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
-    },
-    {
-      label: "Total Files",
-      value: adminStats.totalFiles.toLocaleString(),
-      icon: Files,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
-    },
-    {
-      label: "Storage Used",
-      value: formatFileSize(adminStats.totalStorage),
-      icon: HardDrive,
-      color: "text-amber-600",
-      bg: "bg-amber-50",
-    },
-    {
-      label: "Active Users",
-      value: adminStats.activeUsers.toString(),
-      icon: Activity,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
-    },
-    {
-      label: "Uploads Today",
-      value: adminStats.uploadsToday.toString(),
-      icon: TrendingUp,
-      color: "text-rose-600",
-      bg: "bg-rose-50",
-    },
-    {
-      label: "Shares This Week",
-      value: adminStats.sharesThisWeek.toString(),
-      icon: Share2,
-      color: "text-cyan-600",
-      bg: "bg-cyan-50",
-    },
-  ];
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<AdminSearchParamsInput>;
+}) {
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) redirect("/login");
+  if (sessionUser.role !== "ADMIN") redirect("/dashboard");
+
+  const rawSearchParams = await searchParams;
+  const params = normalizeAdminSearchParams(rawSearchParams);
+  const data: AdminDashboardData = await getAdminDashboardData(params);
+
+  const activeUserRows = data.users.rows.map((user) => ({
+    ...user,
+    storageLabel: formatFileSize(Number(user.storageUsed)),
+  }));
+
+  const scheduledDeletionRows = data.deletions.scheduled.rows.map((user) => ({
+    ...user,
+    scheduledForLabel: formatDateSafe(user.deletionScheduledAt),
+    deletedOnLabel: formatDateSafe(user.updatedAt),
+  }));
+
+  const permanentDeletionRows = data.deletions.permanent.rows.map((user) => ({
+    ...user,
+    deletedAtLabel: formatDateSafe(user.deletedAt),
+  }));
+
+  const logRows = data.logs.rows.map((log, index) => ({
+    ...log,
+    srNo: getPageOffset(data.logs.page) + index + 1,
+    actionLabel: formatLogAction(log.action),
+    actionTone: getLogActionTone(log.action),
+    targetEmailLabel: log.targetEmail || "-",
+    totalFilesLabel: getLogMetadataValue(log.metadata, "totalFiles"),
+    totalFoldersLabel: getLogMetadataValue(log.metadata, "totalFolders"),
+    storageUsedLabel: formatFileSize(
+      getLogMetadataNumber(log.metadata, "storageUsedBytes"),
+    ),
+    deletedByLabel: getLogMetadataValue(log.metadata, "deletedBy"),
+    createdAtLabel: log.createdAt.toLocaleString(),
+  }));
+
+  const tabHref = (tab: string) =>
+    buildAdminHref(rawSearchParams, {
+      tab,
+      userPage: 1,
+      scheduledPage: 1,
+      permanentPage: 1,
+      logsPage: 1,
+    });
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          Admin Dashboard
-        </h1>
-        <p className="text-slate-500 mt-1">
-          Real-time platform overview and system health.
-        </p>
+    <div className="relative mx-auto w-full max-w-7xl space-y-6 px-2 py-2">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <h1 className="text-2xl font-bold">
+            Welcome back, Admin {sessionUser?.name?.split(" ")[0]}!
+          </h1>
+
+          <p className="text-muted-foreground">
+            Here&apos;s an overview of your System
+          </p>
+        </div>
+
+        <div className="flex justify-start md:justify-end">
+          <AdminRefreshButton />
+        </div>
       </div>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard
+          title="Total Users"
+          value={String(data.stats.totalUsers)}
+          helper="Registered accounts"
+          icon={Users}
+          accent="bg-primary/10 text-primary"
+        />
+        <StatCard
+          title="Active Users"
+          value={String(data.stats.activeUsers)}
+          helper="Currently available"
+          icon={RefreshCw}
+          accent="bg-emerald-500/10 text-emerald-600"
+        />
+        <StatCard
+          title="Deleted Users"
+          value={String(data.stats.deletedUsers)}
+          helper="Accounts in deletion flow"
+          icon={UserX}
+          accent="bg-destructive/10 text-destructive"
+        />
+        <StatCard
+          title="Total Files"
+          value={String(data.stats.totalFiles)}
+          helper="Stored items"
+          icon={FileText}
+          accent="bg-sky-500/10 text-sky-600"
+        />
+        <StatCard
+          title="Storage Used"
+          value={formatFileSize(data.stats.totalStorageBytes)}
+          helper="Across active users"
+          icon={HardDrive}
+          accent="bg-amber-500/10 text-amber-600"
+        />
+      </section>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {stats.map((stat) => (
-          <Card key={stat.label} className="border-none shadow-sm bg-white">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div
-                className={`h-12 w-12 rounded-xl ${stat.bg} flex items-center justify-center shrink-0`}
-              >
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">
-                  {stat.value}
-                </p>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  {stat.label}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Tabs value={params.tab} className="space-y-4">
+        <TabsList className="w-full justify-start gap-2 overflow-x-auto rounded-sm bg-muted/70 p-1 sm:w-fit">
+          <TabsTrigger
+            asChild
+            value="users"
+            className="min-w-fit rounded-md px-4 py-2"
+          >
+            <Link href={tabHref("users")} scroll={false}>
+              Users
+            </Link>
+          </TabsTrigger>
+          <TabsTrigger
+            asChild
+            value="deletions"
+            className="min-w-fit rounded-md px-4 py-2"
+          >
+            <Link href={tabHref("deletions")} scroll={false}>
+              Scheduled Deletions
+            </Link>
+          </TabsTrigger>
+          <TabsTrigger
+            asChild
+            value="deleted"
+            className="min-w-fit rounded-md px-4 py-2"
+          >
+            <Link href={tabHref("deleted")} scroll={false}>
+              Deleted Users
+            </Link>
+          </TabsTrigger>
+          <TabsTrigger
+            asChild
+            value="logs"
+            className="min-w-fit rounded-md px-4 py-2"
+          >
+            <Link href={tabHref("logs")} scroll={false}>
+              System Logs
+            </Link>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Charts Section */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card className="border-slate-100 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">
-              Upload Activity (7 Days)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-75 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={storageChartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#f1f5f9"
-                  />
-                  <XAxis
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    fontSize={12}
-                    tick={{ fill: "#64748b" }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    fontSize={12}
-                    tick={{ fill: "#64748b" }}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "#f8fafc" }}
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "none",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    }}
-                  />
-                  <Bar
-                    dataKey="uploads"
-                    fill="#3b82f6"
-                    radius={[6, 6, 0, 0]}
-                    barSize={30}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-100 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">
-              File Type Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center">
-            <div className="h-75 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={fileTypeDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {fileTypeDistribution.map((entry, i) => (
-                      <Cell key={i} fill={entry.fill} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* User Management Table */}
-      <Card className="border-slate-100 shadow-sm overflow-hidden">
-        <CardHeader className="bg-white border-b border-slate-50">
-          <CardTitle className="text-lg font-semibold">
-            User Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-slate-50/50">
-              <TableRow>
-                <TableHead className="font-semibold py-4">User</TableHead>
-                <TableHead className="font-semibold">Role</TableHead>
-                <TableHead className="font-semibold">Storage Usage</TableHead>
-                <TableHead className="hidden md:table-cell font-semibold">
-                  Joined
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockUsers.map((u) => (
-                <TableRow
-                  key={u.id}
-                  className="hover:bg-slate-50/50 transition-colors"
-                >
-                  <TableCell className="py-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9 ring-2 ring-slate-100">
-                        <AvatarFallback className="text-xs font-bold bg-slate-100 text-slate-600">
-                          {u.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-semibold text-sm text-slate-900">
-                          {u.name}
-                        </p>
-                        <p className="text-xs text-slate-500">{u.email}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={u.role === "ADMIN" ? "default" : "secondary"}
-                      className={
-                        u.role === "ADMIN"
-                          ? "bg-indigo-600 hover:bg-indigo-700"
-                          : "bg-slate-100 text-slate-600 border-none"
-                      }
-                    >
-                      {u.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="min-w-50">
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-[10px] font-bold uppercase text-slate-400">
-                        <span>{formatFileSize(u.storageUsed)}</span>
-                        <span>
-                          {((u.storageUsed / u.storageLimit) * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                      <Progress
-                        value={(u.storageUsed / u.storageLimit) * 100}
-                        className="h-1.5 bg-slate-100"
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-slate-500 text-sm font-medium">
-                    {new Date(u.joinedAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </TableCell>
+        <TabsContent value="users" className="space-y-4">
+          <DataCard title="Active Users" badge={`${data.users.total} matching`}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Storage</TableHead>
+                  <TableHead>Files</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {activeUserRows.length > 0 &&
+                  activeUserRows.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium whitespace-nowrap">
+                        {user.name || "Unknown"}
+                      </TableCell>
+                      <TableCell className="max-w-[16rem] truncate text-muted-foreground">
+                        {user.email}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            user.role === "ADMIN" ? "default" : "secondary"
+                          }
+                        >
+                          {user.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {user.storageLabel}
+                      </TableCell>
+                      <TableCell>{user.filesCount}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {user.createdAt.toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {user.role === "ADMIN" ? (
+                          <span className="text-xs text-muted-foreground">
+                            -
+                          </span>
+                        ) : (
+                          <AdminUserActions
+                            userId={user.id}
+                            isDeleted={false}
+                            userEmail={user?.email}
+                          />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                {activeUserRows.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="py-6 text-center font-semibold"
+                    >
+                      No active users found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+
+            <Pager
+              current={data.users.page}
+              total={getPageCount(data.users.total)}
+              hrefBuilder={(page) =>
+                buildAdminHref(rawSearchParams, {
+                  tab: "users",
+                  userPage: page,
+                })
+              }
+            />
+          </DataCard>
+        </TabsContent>
+
+        <TabsContent value="deletions" className="space-y-4">
+          <DataCard
+            title="Scheduled Deletions"
+            badge={`${data.deletions.scheduled.total} matching`}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Scheduled For</TableHead>
+                  <TableHead>Deleted On</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {scheduledDeletionRows.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium whitespace-nowrap">
+                      {user.name || "Unknown"}
+                    </TableCell>
+                    <TableCell className="max-w-[16rem] truncate text-muted-foreground">
+                      {user.email}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {user.scheduledForLabel}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {user.deletedOnLabel}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <AdminUserActions
+                        userId={user.id}
+                        isDeleted
+                        userEmail={user?.email}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {scheduledDeletionRows.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="py-6 text-center font-semibold"
+                    >
+                      No scheduled deletions found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+
+            <Pager
+              current={data.deletions.scheduled.page}
+              total={getPageCount(data.deletions.scheduled.total)}
+              hrefBuilder={(page) =>
+                buildAdminHref(rawSearchParams, {
+                  tab: "deletions",
+                  scheduledPage: page,
+                })
+              }
+            />
+          </DataCard>
+        </TabsContent>
+        <TabsContent value="deleted" className="space-y-4">
+          
+
+          <DataCard
+            title="Permanently Deleted Accounts"
+            badge={`${data.deletions.permanent.total} matching`}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Deleted On</TableHead>
+                  <TableHead>Deleted By</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {permanentDeletionRows.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="max-w-[16rem] truncate text-muted-foreground">
+                      {user.email}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {user.deletedAtLabel}
+                    </TableCell>
+                    <TableCell className="max-w-[16rem] truncate text-muted-foreground">
+                      {user.deletedBy || "-"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {permanentDeletionRows.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={3}
+                      className="py-6 text-center font-semibold"
+                    >
+                      No permanently deleted accounts found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+
+            <Pager
+              current={data.deletions.permanent.page}
+              total={getPageCount(data.deletions.permanent.total)}
+              hrefBuilder={(page) =>
+                buildAdminHref(rawSearchParams, {
+                  tab: "deleted",
+                  permanentPage: page,
+                })
+              }
+            />
+          </DataCard>
+        </TabsContent>
+
+        <TabsContent value="logs" className="space-y-4">
+          <DataCard title="System Logs" badge={`${data.logs.total} matching`}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Sr No</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Target Email</TableHead>
+                  <TableHead>Total Files</TableHead>
+                  <TableHead>Total Folders</TableHead>
+                  <TableHead>Storage Used</TableHead>
+                  <TableHead>Deleted By</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logRows.map((log) => (
+                  <TableRow key={log.id} className="align-top">
+                    <TableCell className="whitespace-nowrap font-medium text-muted-foreground">
+                      {log.srNo}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={log.actionTone}>{log.actionLabel}</Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[16rem] truncate">
+                      {log.targetEmailLabel}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {log.totalFilesLabel}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {log.totalFoldersLabel}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {log.storageUsedLabel}
+                    </TableCell>
+                    <TableCell className="max-w-[16rem] truncate">
+                      {log.deletedByLabel}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {log.createdAtLabel}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {logRows.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={8}
+                      className="py-6 text-center font-semibold"
+                    >
+                      No logs found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+
+            <Pager
+              current={data.logs.page}
+              total={getPageCount(data.logs.total)}
+              hrefBuilder={(page) =>
+                buildAdminHref(rawSearchParams, { tab: "logs", logsPage: page })
+              }
+            />
+          </DataCard>
+        </TabsContent>
+
+        
+      </Tabs>
     </div>
   );
 }
