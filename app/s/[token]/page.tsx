@@ -8,10 +8,9 @@ import {
   createPublicShareAccessCookieValue,
   getPublicShareAccessCookieName,
   isValidPublicShareAccessCookie,
-  bumpPublicShareAttempt,
-  getPublicShareAttemptCookieName,
-  isPublicShareAttemptRateLimited,
 } from "@/lib/public-share-access";
+import { hashShareToken } from "@/lib/token-utils";
+import { isRateLimited, bumpRateLimit, resetRateLimit } from "@/lib/rate-limit";
 
 type FolderNode = {
   id: string;
@@ -23,6 +22,38 @@ type FolderNode = {
     fileType: string | null;
     fileSize: number | null;
   }>;
+};
+
+type SharedFileRecord = {
+  id: string;
+  password: string | null;
+  file: {
+    id: string;
+    userId: string;
+    fileName: string;
+    fileUrl: string;
+    fileType: string | null;
+    fileSize: number | null;
+    isDeleted: boolean;
+  } | null;
+};
+
+type SharedFolderRecord = {
+  id: string;
+  password: string | null;
+  folder: {
+    id: string;
+    userId: string;
+    name: string;
+    parentId: string | null;
+    isDeleted: boolean;
+    isTrashed: boolean;
+  } | null;
+};
+
+type SharePasswordRecord = {
+  id: string;
+  password: string | null;
 };
 
 function buildChildrenMap(
@@ -68,9 +99,10 @@ export default async function PublicSharePage({
   const { token } = await Promise.resolve(params);
   const resolvedSearchParams = await Promise.resolve(searchParams ?? {});
 
-  const fileShare = await db.share.findFirst({
+  const tokenHash = hashShareToken(token);
+  let fileShare = (await db.share.findFirst({
     where: {
-      token,
+      token: tokenHash,
       isPublic: true,
       OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     },
@@ -87,13 +119,13 @@ export default async function PublicSharePage({
         },
       },
     },
-  });
+  })) as SharedFileRecord | null;
 
-  const folderShare = fileShare
+  let folderShare: SharedFolderRecord | null = fileShare
     ? null
-    : await db.folderShare.findFirst({
+    : (await db.folderShare.findFirst({
         where: {
-          token,
+          token: tokenHash,
           isPublic: true,
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
@@ -109,10 +141,31 @@ export default async function PublicSharePage({
             },
           },
         },
-      });
+        })) as SharedFolderRecord | null;
 
   if (!fileShare && !folderShare) {
-    notFound();
+    // Fallback: check for legacy plaintext tokens so existing links continue to work.
+    const legacyFile = await db.share.findFirst({
+      where: { token, isPublic: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+      include: { file: { select: { id: true, userId: true, fileName: true, fileUrl: true, fileType: true, fileSize: true, isDeleted: true } } },
+    }) as SharedFileRecord | null;
+
+    if (legacyFile) {
+      fileShare = legacyFile;
+    } else {
+      const legacyFolder = await db.folderShare.findFirst({
+        where: { token, isPublic: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+        include: { folder: { select: { id: true, userId: true, name: true, parentId: true, isDeleted: true, isTrashed: true } } },
+      }) as SharedFolderRecord | null;
+
+      if (legacyFolder) {
+        folderShare = legacyFolder;
+      }
+    }
+
+    if (!fileShare && !folderShare) {
+      notFound();
+    }
   }
 
   if (fileShare && (!fileShare.file || fileShare.file.isDeleted)) {
@@ -136,10 +189,10 @@ export default async function PublicSharePage({
     "use server";
 
     const passwordInput = String(formData.get("password") ?? "").trim();
-    const latestShare = fileShare
-      ? await db.share.findFirst({
+    let latestShare: SharePasswordRecord | null = fileShare
+      ? (await db.share.findFirst({
           where: {
-            token,
+            token: tokenHash,
             isPublic: true,
             OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
           },
@@ -147,10 +200,10 @@ export default async function PublicSharePage({
             id: true,
             password: true,
           },
-        })
-      : await db.folderShare.findFirst({
+        })) as SharePasswordRecord | null
+      : (await db.folderShare.findFirst({
           where: {
-            token,
+            token: tokenHash,
             isPublic: true,
             OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
           },
@@ -158,49 +211,68 @@ export default async function PublicSharePage({
             id: true,
             password: true,
           },
-        });
+        })) as SharePasswordRecord | null;
+    let latestShareIsLegacyPlaintext = false;
 
     if (!latestShare) {
-      redirect(`/s/${token}?error=invalid-link`);
+      // Try plaintext fallback for migration-on-access
+      const legacyLatest = fileShare
+        ? (await db.share.findFirst({ where: { token, isPublic: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, select: { id: true, password: true } })) as SharePasswordRecord | null
+        : (await db.folderShare.findFirst({ where: { token, isPublic: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, select: { id: true, password: true } })) as SharePasswordRecord | null;
+
+      if (!legacyLatest) {
+        redirect(`/s/${token}?error=invalid-link`);
+      }
+
+      // Replace latestShare with legacy record and mark for migration
+      latestShare = legacyLatest;
+      latestShareIsLegacyPlaintext = true;
     }
 
-    if (!latestShare.password) {
+    if (!latestShare!.password) {
       redirect(`/s/${token}`);
     }
 
-    const actionCookieStore = await cookies();
-    const attemptCookieName = getPublicShareAttemptCookieName(latestShare.id);
-    const attemptCookieValue = actionCookieStore.get(attemptCookieName)?.value;
-    const rateLimit = isPublicShareAttemptRateLimited(latestShare.id, attemptCookieValue);
-    if (rateLimit.limited) {
+    // Server-side rate limiting keyed by share id
+    const rlKey = `share:${latestShare!.id}`;
+    const rateState = isRateLimited(rlKey);
+    if (rateState.limited) {
       redirect(`/s/${token}?error=rate-limited`);
     }
 
-    const valid = await bcrypt.compare(passwordInput, latestShare.password);
+    const valid = await bcrypt.compare(passwordInput, latestShare!.password);
     if (!valid) {
-      const attempt = bumpPublicShareAttempt(latestShare.id, attemptCookieValue);
-      actionCookieStore.set(attemptCookieName, attempt.value, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 15 * 60,
-        path: "/",
-      });
+      bumpRateLimit(rlKey);
       redirect(`/s/${token}?error=invalid-password`);
     }
 
-    actionCookieStore.delete(attemptCookieName);
+    // reset attempts on success
+    resetRateLimit(rlKey);
+    const actionCookieStore = await cookies();
     actionCookieStore.set(
-      getPublicShareAccessCookieName(latestShare.id),
-      createPublicShareAccessCookieValue(latestShare.id),
+      getPublicShareAccessCookieName(latestShare!.id),
+      createPublicShareAccessCookieValue(latestShare!.id),
       {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24,
-      path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 60 * 60 * 24,
+        path: "/",
       },
     );
+
+    // If the share was stored as plaintext token, migrate it now to the hashed token
+    if (latestShareIsLegacyPlaintext) {
+      try {
+        if (fileShare) {
+          await db.share.update({ where: { id: latestShare!.id }, data: { token: hashShareToken(token) } });
+        } else {
+          await db.folderShare.update({ where: { id: latestShare!.id }, data: { token: hashShareToken(token) } });
+        }
+      } catch {
+        // ignore migration errors
+      }
+    }
 
     redirect(`/s/${token}`);
   }

@@ -5,6 +5,9 @@ import { Pool } from "pg";
 const globalForDB = global as unknown as { db: PrismaClient };
 
 const connectionString = process.env.DATABASE_URL;
+if (process.env.NODE_ENV === "production" && !connectionString) {
+  throw new Error("Missing required env: DATABASE_URL");
+}
 
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);

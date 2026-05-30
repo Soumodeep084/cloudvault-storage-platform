@@ -4,6 +4,7 @@ import { db } from "@/lib/prisma";
 import { TokenType } from "@prisma/client";
 import { forgotPasswordSchema, loginSchema, resetPasswordSchema, signupSchema } from "@/lib/validations/auth";
 import { comparePasswords, createSession, getSessionUser, hashPassword } from "@/lib/auth-help";
+import { isRateLimited, bumpRateLimit, resetRateLimit } from "@/lib/rate-limit";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import {
   issueEmailVerificationToken,
@@ -124,6 +125,13 @@ export async function loginAction(values: LoginInput): Promise<ActionResponse> {
 
     const normalizedEmail = validated.data.email.toLowerCase().trim();
 
+    // Server-side rate limiting per-account to mitigate brute-force
+    const rlKey = `login:${normalizedEmail}`;
+    const rlState = isRateLimited(rlKey);
+    if (rlState.limited) {
+      return { success: false, message: "Too many attempts. Try later.", status: 429 };
+    }
+
     const user = await db.user.findFirst({
       where: {
         email: {
@@ -133,6 +141,7 @@ export async function loginAction(values: LoginInput): Promise<ActionResponse> {
       },
     });
     if (!user) {
+      bumpRateLimit(rlKey);
       return { success: false, message: "Invalid credentials", status: 401 };
     }
 
@@ -157,6 +166,7 @@ export async function loginAction(values: LoginInput): Promise<ActionResponse> {
 
     const isMatch = await comparePasswords(validated.data.password, user.password);
     if (!isMatch) {
+      bumpRateLimit(rlKey);
       return { success: false, message: "Invalid credentials", status: 401 };
     }
 
@@ -186,6 +196,9 @@ export async function loginAction(values: LoginInput): Promise<ActionResponse> {
     }
 
     await createSession(user.id);
+
+    // Reset rate limiter after successful login
+    resetRateLimit(rlKey);
 
     return {
       success: true,

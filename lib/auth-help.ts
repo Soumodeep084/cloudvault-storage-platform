@@ -4,8 +4,11 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
 function getJwtSecret() {
-  // Keep local dev usable if env is missing, but avoid weak generic fallback.
-  return process.env.JWT_SECRET || "dev-only-secret-change-me";
+  const secret = process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === "production" && !secret) {
+    throw new Error("Missing required env: JWT_SECRET");
+  }
+  return secret || "";
 }
 
 export async function hashPassword(password: string) {

@@ -7,6 +7,7 @@ import { ActivityAction, type Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { buildShareLink } from "@/lib/share-link";
+import { hashShareToken } from "@/lib/token-utils";
 
 async function logActivity(
     userId: string,
@@ -230,40 +231,34 @@ export async function createShareLink(
         }
 
         const existingShare = file.shares[0];
-        if (existingShare?.token) {
-            const shareLink = buildShareLink(existingShare.token);
+        // Always generate a fresh raw token and store only the hash in DB.
+        const rawToken = crypto.randomBytes(32).toString("hex");
+        const tokenHash = hashShareToken(rawToken);
+        const shareLink = buildShareLink(rawToken);
+
+        if (existingShare?.id) {
+            // Overwrite existing share token with new hash and set password/expires
             await db.share.update({
                 where: { id: existingShare.id },
                 data: {
+                    token: tokenHash,
                     password: passwordHash,
                     expiresAt,
                     isPublic: true,
                 },
             });
-
-            await logActivity(user.id, ActivityAction.SHARE, file.id, {
-                fileId: file.id,
-                fileName: file.fileName,
-                hasPassword: true,
-                expiresAt: expiresAt?.toISOString() ?? null,
+        } else {
+            await db.share.create({
+                data: {
+                    fileId: file.id,
+                    userId: user.id,
+                    token: tokenHash,
+                    isPublic: true,
+                    password: passwordHash,
+                    expiresAt,
+                },
             });
-
-            return { success: true, shareLink };
         }
-
-        const token = crypto.randomBytes(32).toString("hex");
-        const shareLink = buildShareLink(token);
-
-        await db.share.create({
-            data: {
-                fileId: file.id,
-                userId: user.id,
-                token,
-                isPublic: true,
-                password: passwordHash,
-                expiresAt,
-            },
-        });
 
         await logActivity(user.id, ActivityAction.SHARE, file.id, {
             fileId: file.id,

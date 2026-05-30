@@ -6,6 +6,8 @@ import {
   getPublicShareAccessCookieName,
   isValidPublicShareAccessCookie,
 } from "@/lib/public-share-access";
+import { hashShareToken } from "@/lib/token-utils";
+import { isRateLimited, bumpRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -38,9 +40,10 @@ export async function GET(
 ) {
   const { token } = await Promise.resolve(params);
 
+  const tokenHash = hashShareToken(token);
   const fileShare = await db.share.findFirst({
     where: {
-      token,
+      token: tokenHash,
       isPublic: true,
       OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     },
@@ -58,15 +61,50 @@ export async function GET(
       },
     },
   });
+  let fileShareIsLegacy = false;
+  let resolvedFileShare = fileShare;
+  if (!resolvedFileShare) {
+    // Fallback: check for legacy plaintext token and mark for migration
+    const legacy = await db.share.findFirst({
+      where: {
+        token,
+        isPublic: true,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      include: {
+        file: {
+          select: {
+            id: true,
+            userId: true,
+            fileName: true,
+            fileUrl: true,
+            fileType: true,
+            isDeleted: true,
+            isTrashed: true,
+          },
+        },
+      },
+    });
 
-  if (fileShare) {
-    if (!fileShare.file || fileShare.file.isDeleted) {
-      return NextResponse.json({ message: `File missing or deleted for file share ${fileShare.id}` }, { status: 404 });
+    if (legacy) {
+      resolvedFileShare = legacy;
+      fileShareIsLegacy = true;
+    }
+  }
+
+  if (resolvedFileShare) {
+    const rlKey = `share:${resolvedFileShare.id}`;
+    if (isRateLimited(rlKey).limited) {
+      return NextResponse.json({ message: "Too many attempts" }, { status: 429 });
+    }
+    if (!resolvedFileShare.file || resolvedFileShare.file.isDeleted) {
+      return NextResponse.json({ message: `File missing or deleted for file share ${resolvedFileShare.id}` }, { status: 404 });
     }
 
-    if (fileShare.password) {
-      const accessCookie = request.cookies.get(getPublicShareAccessCookieName(fileShare.id))?.value;
-      if (!isValidPublicShareAccessCookie(fileShare.id, accessCookie)) {
+    if (resolvedFileShare.password) {
+      const accessCookie = request.cookies.get(getPublicShareAccessCookieName(resolvedFileShare.id))?.value;
+      if (!isValidPublicShareAccessCookie(resolvedFileShare.id, accessCookie)) {
+        bumpRateLimit(rlKey);
         return NextResponse.redirect(new URL(`/s/${token}?error=auth-required`, request.url));
       }
     }
@@ -75,7 +113,16 @@ export async function GET(
       return NextResponse.json({ message: "Server storage config missing" }, { status: 500 });
     }
 
-    const storagePath = extractStoragePathFromUrl(fileShare.file.fileUrl);
+    // Migrate legacy plaintext token to hashed token after successful access
+    if (fileShareIsLegacy) {
+      try {
+        await db.share.update({ where: { id: resolvedFileShare.id }, data: { token: tokenHash } });
+      } catch {
+        // ignore migration errors (unique constraint, race conditions)
+      }
+    }
+
+    const storagePath = extractStoragePathFromUrl(resolvedFileShare.file.fileUrl);
     if (!storagePath) {
       return NextResponse.json({ message: "Invalid storage path" }, { status: 400 });
     }
@@ -84,26 +131,28 @@ export async function GET(
       .from("files")
       .download(storagePath);
 
-      if (error || !data) {
+    if (error || !data) {
       return NextResponse.json({ message: "Unable to fetch file" }, { status: 500 });
     }
 
     const fileBuffer = Buffer.from(await data.arrayBuffer());
-    const contentType = fileShare.file.fileType || data.type || "application/octet-stream";
+    const contentType = resolvedFileShare.file.fileType || data.type || "application/octet-stream";
 
-      return new NextResponse(fileBuffer, {
+    return new NextResponse(fileBuffer, {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": buildContentDisposition(fileShare.file.fileName),
+        "Content-Disposition": buildContentDisposition(resolvedFileShare.file.fileName),
         "Cache-Control": "private, max-age=60",
       },
     });
   }
 
-  const folderShare = await db.folderShare.findFirst({
+
+  let folderShareIsLegacy = false;
+  let folderShare = await db.folderShare.findFirst({
     where: {
-      token,
+      token: tokenHash,
       isPublic: true,
       OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     },
@@ -120,14 +169,53 @@ export async function GET(
     },
   });
 
+  if (!folderShare) {
+    const legacyFolder = await db.folderShare.findFirst({
+      where: {
+        token,
+        isPublic: true,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      include: {
+        folder: {
+          select: {
+            id: true,
+            userId: true,
+            name: true,
+            isDeleted: true,
+            isTrashed: true,
+          },
+        },
+      },
+    });
+    if (legacyFolder) {
+      folderShare = legacyFolder;
+      folderShareIsLegacy = true;
+    }
+  }
+
   if (!folderShare || !folderShare.folder || folderShare.folder.isDeleted || folderShare.folder.isTrashed) {
     return NextResponse.json({ message: `Share not found for token ${token}` }, { status: 404 });
   }
 
   if (folderShare.password) {
+    const rlKey = `share:${folderShare.id}`;
+    if (isRateLimited(rlKey).limited) {
+      return NextResponse.json({ message: "Too many attempts" }, { status: 429 });
+    }
     const accessCookie = request.cookies.get(getPublicShareAccessCookieName(folderShare.id))?.value;
     if (!isValidPublicShareAccessCookie(folderShare.id, accessCookie)) {
+      bumpRateLimit(rlKey);
       return NextResponse.redirect(new URL(`/s/${token}?error=auth-required`, request.url));
+    }
+  }
+
+  // Migrate legacy folder share token if access is allowed
+  if (folderShareIsLegacy) {
+    try {
+      await db.folderShare.update({ where: { id: folderShare.id }, data: { token: tokenHash } });
+    } catch {
+      // ignore migration errors
     }
   }
 

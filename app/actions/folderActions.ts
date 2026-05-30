@@ -7,6 +7,7 @@ import { ActivityAction } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { buildShareLink } from "@/lib/share-link";
+import { hashShareToken } from "@/lib/token-utils";
 
 function normalizeFolderName(name: string) {
   return name.trim();
@@ -357,11 +358,16 @@ export async function createFolderShareLink(
     }
 
     const existingShare = folder.folderShares[0];
-    if (existingShare?.token) {
-      const shareLink = buildShareLink(existingShare.token);
+    // Generate fresh raw token and store only hash
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashShareToken(rawToken);
+    const shareLink = buildShareLink(rawToken);
+
+    if (existingShare?.id) {
       await db.folderShare.update({
         where: { id: existingShare.id },
         data: {
+          token: tokenHash,
           password: passwordHash,
           expiresAt,
           isPublic: true,
@@ -386,14 +392,12 @@ export async function createFolderShareLink(
       return { success: true, shareLink };
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
-    const shareLink = buildShareLink(token);
-
+    // If no existing share we already created rawToken above
     await db.folderShare.create({
       data: {
         folderId: folder.id,
         userId: user.id,
-        token,
+        token: tokenHash,
         isPublic: true,
         password: passwordHash,
         expiresAt,
