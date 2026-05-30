@@ -44,7 +44,7 @@ type SettingsUser = {
   email: string;
   role: "ADMIN" | "USER" | string;
   isVerified: boolean;
-  storageUsed: bigint | number;
+  storageUsed: bigint;
   createdAt: Date;
 };
 
@@ -69,9 +69,9 @@ export default function SettingsClient({ user }: { user: SettingsUser }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const router = useRouter();
 
-  const storageUsed = Number(user.storageUsed || 0);
+  const storageUsed = user.storageUsed ?? BigInt(0);
   const storagePercent = STORAGE_LIMIT
-    ? (storageUsed / STORAGE_LIMIT) * 100
+    ? Number((storageUsed * BigInt(10000)) / BigInt(STORAGE_LIMIT)) / 100
     : 0;
   const isProfessional = user.role === "ADMIN";
 

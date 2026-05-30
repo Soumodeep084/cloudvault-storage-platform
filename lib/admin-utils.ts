@@ -125,10 +125,11 @@ export function getLogMetadataValue(metadata: unknown, key: string) {
   return formatReadableValue(metadata[key]);
 }
 
-export function getLogMetadataNumber(metadata: unknown, key: string) {
+export function getLogMetadataBytes(metadata: unknown, key: string) {
   if (!isRecord(metadata)) return 0;
   const value = metadata[key];
   if (typeof value === "number") return value;
-  if (typeof value === "bigint") return Number(value);
-  return Number(value ?? 0);
+  if (typeof value === "bigint") return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) return BigInt(value);
+  return 0;
 }

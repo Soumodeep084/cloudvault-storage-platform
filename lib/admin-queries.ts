@@ -63,7 +63,7 @@ async function getAdminStats() {
     db.user.aggregate({ _sum: { storageUsed: true } }),
   ]);
 
-  const totalStorageBytes = Number(storageAgg._sum.storageUsed ?? BigInt(0));
+  const totalStorageBytes = storageAgg._sum.storageUsed ?? BigInt(0);
 
   return {
     totalUsers,

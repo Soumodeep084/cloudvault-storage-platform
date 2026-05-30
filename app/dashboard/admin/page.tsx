@@ -31,7 +31,7 @@ import {
   formatDateSafe,
   formatLogAction,
   getLogActionTone,
-  getLogMetadataNumber,
+  getLogMetadataBytes,
   getLogMetadataValue,
   getPageCount,
   getPageOffset,
@@ -54,7 +54,7 @@ export default async function AdminPage({
 
   const activeUserRows = data.users.rows.map((user) => ({
     ...user,
-    storageLabel: formatFileSize(Number(user.storageUsed)),
+    storageLabel: formatFileSize(user.storageUsed),
   }));
 
   const scheduledDeletionRows = data.deletions.scheduled.rows.map((user) => ({
@@ -76,9 +76,7 @@ export default async function AdminPage({
     targetEmailLabel: log.targetEmail || "-",
     totalFilesLabel: getLogMetadataValue(log.metadata, "totalFiles"),
     totalFoldersLabel: getLogMetadataValue(log.metadata, "totalFolders"),
-    storageUsedLabel: formatFileSize(
-      getLogMetadataNumber(log.metadata, "storageUsedBytes"),
-    ),
+    storageUsedLabel: formatFileSize(getLogMetadataBytes(log.metadata, "storageUsedBytes")),
     deletedByLabel: getLogMetadataValue(log.metadata, "deletedBy"),
     createdAtLabel: log.createdAt.toLocaleString(),
   }));

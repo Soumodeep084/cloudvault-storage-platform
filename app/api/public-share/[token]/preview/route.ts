@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/prisma";
-import { supabaseAdmin } from "@/lib/supabase";
-import { extractStoragePathFromUrl } from "@/lib/storage-path";
+import { redirectToStorageObject } from "@/lib/storage-delivery";
 import {
   getPublicShareAccessCookieName,
   isValidPublicShareAccessCookie,
@@ -10,11 +9,6 @@ import { hashShareToken } from "@/lib/token-utils";
 import { isRateLimited, bumpRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
-
-function buildContentDisposition(fileName: string) {
-  const encodedName = encodeURIComponent(fileName);
-  return `inline; filename*=UTF-8''${encodedName}`;
-}
 
 function isDescendantFolder(
   folderId: string | null,
@@ -109,10 +103,6 @@ export async function GET(
       }
     }
 
-    if (!supabaseAdmin) {
-      return NextResponse.json({ message: "Server storage config missing" }, { status: 500 });
-    }
-
     // Migrate legacy plaintext token to hashed token after successful access
     if (fileShareIsLegacy) {
       try {
@@ -122,29 +112,9 @@ export async function GET(
       }
     }
 
-    const storagePath = extractStoragePathFromUrl(resolvedFileShare.file.fileUrl);
-    if (!storagePath) {
-      return NextResponse.json({ message: "Invalid storage path" }, { status: 400 });
-    }
-
-    const { data, error } = await supabaseAdmin.storage
-      .from("files")
-      .download(storagePath);
-
-    if (error || !data) {
-      return NextResponse.json({ message: "Unable to fetch file" }, { status: 500 });
-    }
-
-    const fileBuffer = Buffer.from(await data.arrayBuffer());
-    const contentType = resolvedFileShare.file.fileType || data.type || "application/octet-stream";
-
-    return new NextResponse(fileBuffer, {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Content-Disposition": buildContentDisposition(resolvedFileShare.file.fileName),
-        "Cache-Control": "private, max-age=60",
-      },
+    return redirectToStorageObject({
+      fileUrl: resolvedFileShare.file.fileUrl,
+      fileName: resolvedFileShare.file.fileName,
     });
   }
 
@@ -254,32 +224,8 @@ export async function GET(
     return NextResponse.json({ message: `File ${fileId} is not a descendant of shared folder ${folderShare.folder.id}` }, { status: 404 });
   }
 
-  if (!supabaseAdmin) {
-    return NextResponse.json({ message: "Server storage config missing" }, { status: 500 });
-  }
-
-  const storagePath = extractStoragePathFromUrl(file.fileUrl);
-  if (!storagePath) {
-    return NextResponse.json({ message: "Invalid storage path" }, { status: 400 });
-  }
-
-  const { data, error } = await supabaseAdmin.storage
-    .from("files")
-    .download(storagePath);
-
-  if (error || !data) {
-    return NextResponse.json({ message: "Unable to fetch file" }, { status: 500 });
-  }
-
-  const fileBuffer = Buffer.from(await data.arrayBuffer());
-  const contentType = file.fileType || data.type || "application/octet-stream";
-
-  return new NextResponse(fileBuffer, {
-    status: 200,
-    headers: {
-      "Content-Type": contentType,
-      "Content-Disposition": buildContentDisposition(file.fileName),
-      "Cache-Control": "private, max-age=60",
-    },
+  return redirectToStorageObject({
+    fileUrl: file.fileUrl,
+    fileName: file.fileName,
   });
 }

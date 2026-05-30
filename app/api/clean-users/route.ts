@@ -1,9 +1,25 @@
-// app/api/cleanup/route.ts
-
 import { NextResponse } from "next/server";
 import { db } from "@/lib/prisma";
 import { supabaseAdmin } from "@/lib/supabase";
 import { extractStoragePathFromUrl } from "@/lib/storage-path";
+
+const STORAGE_DELETE_BATCH_SIZE = 1000;
+
+async function removeStorageFiles(fileUrls: string[]) {
+    if (!supabaseAdmin || fileUrls.length === 0) return;
+
+    const paths = fileUrls
+        .map((fileUrl) => extractStoragePathFromUrl(fileUrl))
+        .filter((path): path is string => Boolean(path));
+
+    for (let index = 0; index < paths.length; index += STORAGE_DELETE_BATCH_SIZE) {
+        const batch = paths.slice(index, index + STORAGE_DELETE_BATCH_SIZE);
+        const { error } = await supabaseAdmin.storage.from("files").remove(batch);
+        if (error) {
+            throw error;
+        }
+    }
+}
 
 export async function GET() {
     try {
@@ -21,7 +37,6 @@ export async function GET() {
 
         const now = new Date();
 
-        // STEP 1:Find users whose delete time has expired
         const users = await db.user.findMany({
             where: {
                 deleted: true,
@@ -38,7 +53,7 @@ export async function GET() {
 
         console.log("Expired users found:", users.length);
 
-        if (!users || users.length === 0) {
+        if (users.length === 0) {
             console.log("No users to delete");
 
             return NextResponse.json({
@@ -47,84 +62,42 @@ export async function GET() {
             });
         }
 
-        let deletedUsers = 0;
+        const userIds = users.map((user) => user.id);
+        const files = await db.file.findMany({
+            where: { userId: { in: userIds } },
+            select: {
+                fileUrl: true,
+            },
+        });
 
-        for (const user of users) {
-            console.log("---------------------------------");
-            console.log("Deleting user:", user.id);
-            console.log(
-                "Scheduled deletion:",
-                user.deletionScheduledAt
-            );
+        console.log("Files found:", files.length);
 
-            // STEP 2: Get all files of this user
-            const files = await db.file.findMany({
-                where: { userId: user.id },
-                select: {
-                    id: true,
-                    fileUrl: true,
-                },
-            });
-
-            console.log("Files found:", files.length);
-
-            // STEP 3: Delete files from Supabase Storage
-            if (files.length > 0) {
-                const paths = files
-                    .map((file) =>
-                        extractStoragePathFromUrl(file.fileUrl)
-                    )
-                    .filter(
-                        (path): path is string => Boolean(path)
-                    );
-
-                console.log("Storage paths:", paths);
-
-                if (paths.length > 0) {
-                    const { error: storageError } =
-                        await supabaseAdmin.storage
-                            .from("files")
-                            .remove(paths);
-
-                    if (storageError) {
-                        console.error(
-                            "Storage delete failed:",
-                            storageError
-                        );
-
-                        continue;
-                    }
-
-                    console.log("Storage files deleted");
-                }
-            }
-
-            // STEP 4: Delete user record
-            await db.user.delete({
-                where: { id: user.id },
-            });
-
-            deletedUsers += 1;
-
-            console.log(
-                `User ${user.id} fully deleted`
+        try {
+            await removeStorageFiles(files.map((file) => file.fileUrl));
+        } catch (storageError) {
+            console.error("Storage delete failed:", storageError);
+            return NextResponse.json(
+                { error: "Failed to remove files from storage" },
+                { status: 500 }
             );
         }
 
+        const deletedUsers = await db.user.deleteMany({
+            where: { id: { in: userIds } },
+        });
+
+        console.log("Users deleted:", deletedUsers.count);
         console.log("=================================");
         console.log("Cleanup completed");
 
         return NextResponse.json({
             success: true,
-            deletedUsers,
+            deletedUsers: deletedUsers.count,
         });
     } catch (error: unknown) {
         console.error("Cleanup error:", error);
 
-        const message =
-            error instanceof Error
-                ? error.message
-                : "Something went wrong";
+        const message = error instanceof Error ? error.message : "Something went wrong";
 
         return NextResponse.json({ error: message }, { status: 500 });
     }

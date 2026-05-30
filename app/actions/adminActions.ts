@@ -8,6 +8,10 @@ import type { Prisma } from "@prisma/client";
 
 type AdminActionResult = { success: boolean; error?: string };
 
+function serializeStorageBytes(bytes: bigint | number) {
+  return typeof bytes === "bigint" ? bytes.toString() : String(Math.trunc(bytes));
+}
+
 function getDeletionScheduleDate() {
   const next = new Date();
   next.setDate(next.getDate() + 7);
@@ -80,7 +84,7 @@ export async function softDeleteUserByAdminAction(targetUserId: string): Promise
       metadata: {
         totalFiles: target._count.files,
         totalFolders: target._count.folders,
-        storageUsedBytes: Number(target.storageUsed),
+        storageUsedBytes: serializeStorageBytes(target.storageUsed),
         deletedBy: auth.user.email,
       },
     });
@@ -129,7 +133,7 @@ export async function restoreUserByAdminAction(targetUserId: string): Promise<Ad
       metadata: {
         totalFiles: target._count.files,
         totalFolders: target._count.folders,
-        storageUsedBytes: Number(target.storageUsed),
+        storageUsedBytes: serializeStorageBytes(target.storageUsed),
         deletedBy: auth.user.email,
       },
     });
@@ -178,7 +182,7 @@ export async function permanentDeleteUserByAdminAction(targetUserId: string): Pr
         targetName: target.name,
         totalFiles: target._count.files,
         totalFolders: target._count.folders,
-        storageUsedBytes: Number(target.storageUsed),
+        storageUsedBytes: serializeStorageBytes(target.storageUsed),
         deletedBy: auth.user.email,
       },
     });
@@ -193,7 +197,7 @@ export async function permanentDeleteUserByAdminAction(targetUserId: string): Pr
 export async function logCleanupCronAction(metadata?: {
   totalFiles?: number;
   totalFolders?: number;
-  storageUsedBytes?: number;
+  storageUsedBytes?: bigint | number;
 }) {
   const auth = await requireAdmin();
   if ("error" in auth) return { success: false, error: auth.error };
@@ -205,7 +209,7 @@ export async function logCleanupCronAction(metadata?: {
       metadata: {
         totalFiles: metadata?.totalFiles ?? 0,
         totalFolders: metadata?.totalFolders ?? 0,
-        storageUsedBytes: metadata?.storageUsedBytes ?? 0,
+        storageUsedBytes: serializeStorageBytes(metadata?.storageUsedBytes ?? 0),
         deletedBy: auth.user.email,
       },
     });

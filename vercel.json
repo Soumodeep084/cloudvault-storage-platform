@@ -6,6 +6,9 @@
     },{
       "path": "/api/clean-trash",
       "schedule": "0 */12 * * *"
+    },{
+      "path": "/api/clean-expired",
+      "schedule": "30 0 * * *"
     }
   ]
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ActivityAction } from "@prisma/client";
 import { db } from "@/lib/prisma";
 import { supabaseAdmin } from "@/lib/supabase";
+import { redirectToStorageObject } from "@/lib/storage-delivery";
 import { extractStoragePathFromUrl } from "@/lib/storage-path";
 import archiver from "archiver";
 import { PassThrough, Readable } from "node:stream";
@@ -176,10 +177,6 @@ export async function GET(
       }
     }
 
-    if (!supabaseAdmin) {
-      return NextResponse.json({ message: "Server storage config missing" }, { status: 500 });
-    }
-
     // Migrate legacy plaintext token to hashed token after successful access
     if (fileShareIsLegacy) {
       try {
@@ -189,17 +186,8 @@ export async function GET(
       }
     }
 
-    const storagePath = extractStoragePathFromUrl(resolvedFileShare.file.fileUrl);
-    if (!storagePath) {
-      return NextResponse.json({ message: "Invalid storage path" }, { status: 400 });
-    }
-
-    const { data, error } = await supabaseAdmin.storage
-      .from("files")
-      .createSignedUrl(storagePath, 60 * 2, { download: resolvedFileShare.file.fileName });
-
-    if (error || !data?.signedUrl) {
-      return NextResponse.json({ message: "Unable to create download URL" }, { status: 500 });
+    if (!supabaseAdmin) {
+      return NextResponse.json({ message: "Server storage config missing" }, { status: 500 });
     }
 
     await db.activity.create({
@@ -218,7 +206,11 @@ export async function GET(
       },
     });
 
-    return NextResponse.redirect(data.signedUrl, { status: 302 });
+    return redirectToStorageObject({
+      fileUrl: resolvedFileShare.file.fileUrl,
+      fileName: resolvedFileShare.file.fileName,
+      download: true,
+    });
   }
 
   let folderShareIsLegacy = false;
@@ -424,19 +416,6 @@ export async function GET(
     return NextResponse.json({ message: "Server storage config missing" }, { status: 500 });
   }
 
-  const storagePath = extractStoragePathFromUrl(file.fileUrl);
-  if (!storagePath) {
-    return NextResponse.json({ message: "Invalid storage path" }, { status: 400 });
-  }
-
-  const { data, error } = await supabaseAdmin.storage
-    .from("files")
-    .createSignedUrl(storagePath, 60 * 2, { download: file.fileName });
-
-  if (error || !data?.signedUrl) {
-    return NextResponse.json({ message: "Unable to create download URL" }, { status: 500 });
-  }
-
   await db.activity.create({
     data: {
       userId: folderShare.userId,
@@ -454,5 +433,9 @@ export async function GET(
     },
   });
 
-  return NextResponse.redirect(data.signedUrl, { status: 302 });
+  return redirectToStorageObject({
+    fileUrl: file.fileUrl,
+    fileName: file.fileName,
+    download: true,
+  });
 }

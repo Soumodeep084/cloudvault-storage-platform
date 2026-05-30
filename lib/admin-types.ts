@@ -52,7 +52,7 @@ export type AdminPermanentDeletionRow = {
 export type AdminLogMetadata = {
   totalFiles?: number | null;
   totalFolders?: number | null;
-  storageUsedBytes?: number | bigint | null;
+  storageUsedBytes?: number | string | null;
   deletedBy?: string | null;
   [key: string]: unknown;
 };
@@ -77,7 +77,7 @@ export type AdminDashboardStats = {
   deletedUsers: number;
   totalFiles: number;
   totalFolders: number;
-  totalStorageBytes: number;
+  totalStorageBytes: bigint;
   activeUsers: number;
 };
 
