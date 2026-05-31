@@ -11,8 +11,17 @@ import {
   getPublicShareAccessCookieName,
   isValidPublicShareAccessCookie,
 } from "@/lib/public-share-access";
-import { hashShareToken } from "@/lib/token-utils";
 import { isRateLimited, bumpRateLimit } from "@/lib/rate-limit";
+import {
+  migratePublicShareToken,
+  resolvePublicShareByToken,
+} from "@/lib/public-share-service";
+import {
+  buildChildrenMap,
+  buildFolderPathMap,
+  collectDescendants,
+  isDescendantFolder,
+} from "@/lib/folder-tree";
 
 export const runtime = "nodejs";
 
@@ -26,142 +35,17 @@ function getClientIp(request: Request): string | null {
   return realIp?.trim() || null;
 }
 
-function isDescendantFolder(
-  folderId: string | null,
-  rootId: string,
-  parentMap: Map<string, string | null>,
-) {
-  let current = folderId;
-  const visited = new Set<string>();
-
-  while (current) {
-    if (current === rootId) return true;
-    if (visited.has(current)) break;
-    visited.add(current);
-    current = parentMap.get(current) ?? null;
-  }
-
-  return false;
-}
-
-function buildChildrenMap(folders: Array<{ id: string; parentId: string | null }>) {
-  const map = new Map<string | null, string[]>();
-  for (const folder of folders) {
-    const key = folder.parentId ?? null;
-    const entry = map.get(key) ?? [];
-    entry.push(folder.id);
-    map.set(key, entry);
-  }
-  return map;
-}
-
-function collectDescendants(
-  rootId: string,
-  childrenMap: Map<string | null, string[]>,
-) {
-  const stack = [rootId];
-  const visited = new Set<string>();
-
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (!current || visited.has(current)) continue;
-    visited.add(current);
-    const children = childrenMap.get(current) ?? [];
-    for (const child of children) {
-      if (!visited.has(child)) stack.push(child);
-    }
-  }
-
-  return Array.from(visited);
-}
-
-function buildFolderPathMap(
-  folders: Array<{ id: string; parentId: string | null; name: string }>,
-  rootId: string,
-) {
-  const folderMap = new Map(folders.map((folder) => [folder.id, folder]));
-  const resolved = new Map<string, string>();
-  const resolving = new Set<string>();
-  const rootName = folderMap.get(rootId)?.name ?? "folder";
-
-  const resolve = (folderId: string): string => {
-    if (resolved.has(folderId)) return resolved.get(folderId) as string;
-    if (resolving.has(folderId)) return rootName;
-    const folder = folderMap.get(folderId);
-    if (!folder) return rootName;
-    resolving.add(folderId);
-    const parentPath = folder.parentId ? resolve(folder.parentId) : rootName;
-    const nextPath = folder.parentId ? `${parentPath}/${folder.name}` : rootName;
-    resolving.delete(folderId);
-    resolved.set(folderId, nextPath);
-    return nextPath;
-  };
-
-  for (const folder of folders) {
-    if (!resolved.has(folder.id)) {
-      resolve(folder.id);
-    }
-  }
-
-  return resolved;
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> | { token: string } },
 ) {
   const { token } = await Promise.resolve(params);
 
-  const tokenHash = hashShareToken(token);
-  const fileShare = await db.share.findFirst({
-    where: {
-      token: tokenHash,
-      isPublic: true,
-      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-    },
-    include: {
-      file: {
-        select: {
-          id: true,
-          userId: true,
-          fileName: true,
-          fileUrl: true,
-          isDeleted: true,
-          isTrashed: true,
-        },
-      },
-    },
-  });
-  let fileShareIsLegacy = false;
-  let resolvedFileShare = fileShare;
-  if (!resolvedFileShare) {
-    const legacy = await db.share.findFirst({
-      where: {
-        token,
-        isPublic: true,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-      },
-      include: {
-        file: {
-          select: {
-            id: true,
-            userId: true,
-            fileName: true,
-            fileUrl: true,
-            isDeleted: true,
-            isTrashed: true,
-          },
-        },
-      },
-    });
-    if (legacy) {
-      resolvedFileShare = legacy;
-      fileShareIsLegacy = true;
-    }
-  }
+    const resolvedShare = await resolvePublicShareByToken(token);
 
-  if (resolvedFileShare) {
-    const rlKey = `share:${resolvedFileShare.id}`;
+    if (resolvedShare?.kind === "file") {
+      const { share: resolvedFileShare, isLegacy, tokenHash } = resolvedShare;
+      const rlKey = `share:${resolvedFileShare.id}`;
     if (isRateLimited(rlKey).limited) {
       return NextResponse.json({ message: "Too many attempts" }, { status: 429 });
     }
@@ -177,10 +61,9 @@ export async function GET(
       }
     }
 
-    // Migrate legacy plaintext token to hashed token after successful access
-    if (fileShareIsLegacy) {
+    if (isLegacy) {
       try {
-        await db.share.update({ where: { id: resolvedFileShare.id }, data: { token: tokenHash } });
+        await migratePublicShareToken("file", resolvedFileShare.id, tokenHash);
       } catch {
         // ignore migration errors
       }
@@ -213,53 +96,13 @@ export async function GET(
     });
   }
 
-  let folderShareIsLegacy = false;
-  let folderShare = await db.folderShare.findFirst({
-    where: {
-      token: tokenHash,
-      isPublic: true,
-      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-    },
-    include: {
-      folder: {
-        select: {
-          id: true,
-          userId: true,
-          name: true,
-          isDeleted: true,
-          isTrashed: true,
-        },
-      },
-    },
-  });
-
-  if (!folderShare) {
-    const legacyFolder = await db.folderShare.findFirst({
-      where: {
-        token,
-        isPublic: true,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-      },
-      include: {
-        folder: {
-          select: {
-            id: true,
-            userId: true,
-            name: true,
-            isDeleted: true,
-            isTrashed: true,
-          },
-        },
-      },
-    });
-
-    if (legacyFolder) {
-      folderShare = legacyFolder;
-      folderShareIsLegacy = true;
-    }
+  if (resolvedShare?.kind !== "folder") {
+    return NextResponse.json({ message: `Share not found for token ${token}` }, { status: 404 });
   }
 
-  if (!folderShare || !folderShare.folder || folderShare.folder.isDeleted || folderShare.folder.isTrashed) {
+  const { share: folderShare, isLegacy, tokenHash } = resolvedShare;
+
+  if (!folderShare.folder || folderShare.folder.isDeleted || folderShare.folder.isTrashed) {
     return NextResponse.json({ message: `Share not found for token ${token}` }, { status: 404 });
   }
 
@@ -275,9 +118,9 @@ export async function GET(
     }
   }
 
-  if (folderShareIsLegacy) {
+  if (isLegacy) {
     try {
-      await db.folderShare.update({ where: { id: folderShare.id }, data: { token: tokenHash } });
+      await migratePublicShareToken("folder", folderShare.id, tokenHash);
     } catch {
       // ignore migration errors
     }
@@ -342,7 +185,7 @@ export async function GET(
         if (!response.ok || !response.body) continue;
 
         const nodeStream = Readable.fromWeb(response.body as NodeReadableStream);
-        const folderPath = file.folderId ? folderPathMap.get(file.folderId) : folderShare.folder.name;
+        const folderPath = file.folderId ? folderPathMap.get(file.folderId) : folderShare.folder?.name ?? undefined;
         const entryName = folderPath ? `${folderPath}/${file.fileName}` : file.fileName;
         archive.append(nodeStream, { name: entryName });
       }

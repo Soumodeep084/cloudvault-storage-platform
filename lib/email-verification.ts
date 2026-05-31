@@ -1,13 +1,9 @@
-import crypto from "crypto";
 import { TokenType } from "@prisma/client";
 import { db } from "@/lib/prisma";
+import { createExpiryDate, createRandomToken, hashOpaqueToken, isExpiredDate } from "@/lib/token-utils";
 
 export const VERIFY_EMAIL_TTL_MINUTES = 5;
 export const VERIFY_EMAIL_RESEND_COOLDOWN_MINUTES = 2;
-
-function hashToken(token: string) {
-  return crypto.createHash("sha256").update(token).digest("hex");
-}
 
 export async function issueEmailVerificationToken(
   userId: string,
@@ -36,9 +32,9 @@ export async function issueEmailVerificationToken(
     where: { userId, type: TokenType.VERIFY_EMAIL },
   });
 
-  const rawToken = crypto.randomBytes(32).toString("hex");
-  const tokenHash = hashToken(rawToken);
-  const expiresAt = new Date(now + VERIFY_EMAIL_TTL_MINUTES * 60 * 1000);
+  const rawToken = createRandomToken();
+  const tokenHash = hashOpaqueToken(rawToken);
+  const expiresAt = createExpiryDate(VERIFY_EMAIL_TTL_MINUTES, now);
 
   await db.token.create({
     data: {
@@ -53,7 +49,7 @@ export async function issueEmailVerificationToken(
 }
 
 export async function consumeEmailVerificationToken(rawToken: string) {
-  const tokenHash = hashToken(rawToken);
+  const tokenHash = hashOpaqueToken(rawToken);
 
   const tokenRecord = await db.token.findFirst({
     where: { token: tokenHash, type: TokenType.VERIFY_EMAIL },
@@ -64,7 +60,7 @@ export async function consumeEmailVerificationToken(rawToken: string) {
     return { status: "not_found" as const };
   }
 
-  if (tokenRecord.expiresAt <= new Date()) {
+  if (isExpiredDate(tokenRecord.expiresAt)) {
     await db.token.delete({ where: { id: tokenRecord.id } });
     return { status: "expired" as const };
   }

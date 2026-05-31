@@ -5,9 +5,11 @@ import { getSessionUser } from "@/lib/auth-help";
 import { revalidatePath } from "next/cache";
 import { ActivityAction, type Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import crypto from "crypto";
-import { buildShareLink } from "@/lib/share-link";
-import { hashShareToken } from "@/lib/token-utils";
+import { logger } from "@/lib/logger";
+import {
+    createShareCredentials,
+    parseShareCreationOptions,
+} from "@/lib/public-share-service";
 
 async function logActivity(
     userId: string,
@@ -201,23 +203,12 @@ export async function createShareLink(
             return { success: false, error: "Not authenticated" };
         }
 
-        const normalizedPassword = options?.password?.trim();
-        if (!normalizedPassword || normalizedPassword.length < 6) {
-            return { success: false, error: "Password must be at least 6 characters" };
+        const parsedOptions = parseShareCreationOptions(options);
+        if (!parsedOptions.success) {
+            return { success: false, error: parsedOptions.error };
         }
 
-        const expiresInMinutes = options?.expiresInMinutes ?? null;
-        if (typeof expiresInMinutes === "number") {
-            if (!Number.isFinite(expiresInMinutes) || expiresInMinutes <= 0) {
-                return { success: false, error: "Expiry must be greater than zero" };
-            }
-            if (expiresInMinutes > 10080) {
-                return { success: false, error: "Expiry cannot exceed 7 days" };
-            }
-        }
-        const expiresAt = expiresInMinutes && expiresInMinutes > 0
-            ? new Date(Date.now() + expiresInMinutes * 60 * 1000)
-            : null;
+        const { password: normalizedPassword, expiresAt } = parsedOptions;
 
         const passwordHash = await bcrypt.hash(normalizedPassword, 10);
 
@@ -231,10 +222,7 @@ export async function createShareLink(
         }
 
         const existingShare = file.shares[0];
-        // Always generate a fresh raw token and store only the hash in DB.
-        const rawToken = crypto.randomBytes(32).toString("hex");
-        const tokenHash = hashShareToken(rawToken);
-        const shareLink = buildShareLink(rawToken);
+        const { tokenHash, shareLink } = createShareCredentials();
 
         if (existingShare?.id) {
             // Overwrite existing share token with new hash and set password/expires
@@ -272,7 +260,7 @@ export async function createShareLink(
 
         return { success: true, shareLink };
     } catch (error) {
-        console.error("Create share link error:", error);
+        logger.error("Create share link error", { error });
         return { success: false, error: "Unable to create share link" };
     }
 }

@@ -1,0 +1,2 @@
+export const SHARE_PASSWORD_MIN_LENGTH = 6;
+export const SHARE_MAX_EXPIRY_MINUTES = 7 * 24 * 60;

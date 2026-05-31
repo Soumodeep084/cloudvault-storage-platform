@@ -1,32 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/prisma";
 import { redirectToStorageObject } from "@/lib/storage-delivery";
 import {
   getPublicShareAccessCookieName,
   isValidPublicShareAccessCookie,
 } from "@/lib/public-share-access";
-import { hashShareToken } from "@/lib/token-utils";
 import { isRateLimited, bumpRateLimit } from "@/lib/rate-limit";
+import {
+  migratePublicShareToken,
+  resolvePublicShareByToken,
+} from "@/lib/public-share-service";
+import { db } from "@/lib/prisma";
+import { isDescendantFolder } from "@/lib/folder-tree";
 
 export const runtime = "nodejs";
-
-function isDescendantFolder(
-  folderId: string | null,
-  rootId: string,
-  parentMap: Map<string, string | null>,
-) {
-  let current = folderId;
-  const visited = new Set<string>();
-
-  while (current) {
-    if (current === rootId) return true;
-    if (visited.has(current)) break;
-    visited.add(current);
-    current = parentMap.get(current) ?? null;
-  }
-
-  return false;
-}
 
 export async function GET(
   request: NextRequest,
@@ -34,59 +20,10 @@ export async function GET(
 ) {
   const { token } = await Promise.resolve(params);
 
-  const tokenHash = hashShareToken(token);
-  const fileShare = await db.share.findFirst({
-    where: {
-      token: tokenHash,
-      isPublic: true,
-      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-    },
-    include: {
-      file: {
-        select: {
-          id: true,
-          userId: true,
-          fileName: true,
-          fileUrl: true,
-          fileType: true,
-          isDeleted: true,
-          isTrashed: true,
-        },
-      },
-    },
-  });
-  let fileShareIsLegacy = false;
-  let resolvedFileShare = fileShare;
-  if (!resolvedFileShare) {
-    // Fallback: check for legacy plaintext token and mark for migration
-    const legacy = await db.share.findFirst({
-      where: {
-        token,
-        isPublic: true,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-      },
-      include: {
-        file: {
-          select: {
-            id: true,
-            userId: true,
-            fileName: true,
-            fileUrl: true,
-            fileType: true,
-            isDeleted: true,
-            isTrashed: true,
-          },
-        },
-      },
-    });
+  const resolvedShare = await resolvePublicShareByToken(token);
 
-    if (legacy) {
-      resolvedFileShare = legacy;
-      fileShareIsLegacy = true;
-    }
-  }
-
-  if (resolvedFileShare) {
+  if (resolvedShare?.kind === "file") {
+    const { share: resolvedFileShare, isLegacy, tokenHash } = resolvedShare;
     const rlKey = `share:${resolvedFileShare.id}`;
     if (isRateLimited(rlKey).limited) {
       return NextResponse.json({ message: "Too many attempts" }, { status: 429 });
@@ -103,10 +40,9 @@ export async function GET(
       }
     }
 
-    // Migrate legacy plaintext token to hashed token after successful access
-    if (fileShareIsLegacy) {
+    if (isLegacy) {
       try {
-        await db.share.update({ where: { id: resolvedFileShare.id }, data: { token: tokenHash } });
+        await migratePublicShareToken("file", resolvedFileShare.id, tokenHash);
       } catch {
         // ignore migration errors (unique constraint, race conditions)
       }
@@ -118,53 +54,12 @@ export async function GET(
     });
   }
 
-
-  let folderShareIsLegacy = false;
-  let folderShare = await db.folderShare.findFirst({
-    where: {
-      token: tokenHash,
-      isPublic: true,
-      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-    },
-    include: {
-      folder: {
-        select: {
-          id: true,
-          userId: true,
-          name: true,
-          isDeleted: true,
-          isTrashed: true,
-        },
-      },
-    },
-  });
-
-  if (!folderShare) {
-    const legacyFolder = await db.folderShare.findFirst({
-      where: {
-        token,
-        isPublic: true,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-      },
-      include: {
-        folder: {
-          select: {
-            id: true,
-            userId: true,
-            name: true,
-            isDeleted: true,
-            isTrashed: true,
-          },
-        },
-      },
-    });
-    if (legacyFolder) {
-      folderShare = legacyFolder;
-      folderShareIsLegacy = true;
-    }
+  if (resolvedShare?.kind !== "folder") {
+    return NextResponse.json({ message: `Share not found for token ${token}` }, { status: 404 });
   }
 
-  if (!folderShare || !folderShare.folder || folderShare.folder.isDeleted || folderShare.folder.isTrashed) {
+  const { share: folderShare, isLegacy, tokenHash } = resolvedShare;
+  if (!folderShare.folder || folderShare.folder.isDeleted || folderShare.folder.isTrashed) {
     return NextResponse.json({ message: `Share not found for token ${token}` }, { status: 404 });
   }
 
@@ -180,10 +75,9 @@ export async function GET(
     }
   }
 
-  // Migrate legacy folder share token if access is allowed
-  if (folderShareIsLegacy) {
+  if (isLegacy) {
     try {
-      await db.folderShare.update({ where: { id: folderShare.id }, data: { token: tokenHash } });
+      await migratePublicShareToken("folder", folderShare.id, tokenHash);
     } catch {
       // ignore migration errors
     }

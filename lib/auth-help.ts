@@ -2,6 +2,9 @@ import { db } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
+import { createExpiryDate, isExpiredDate } from "@/lib/token-utils";
+
+const SESSION_TTL_MINUTES = 7 * 24 * 60;
 
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
@@ -21,7 +24,7 @@ export async function comparePasswords(password: string, hash: string) {
 
 export async function createSession(userId: string) {
   const token = jwt.sign({ userId }, getJwtSecret(), { expiresIn: "7d" });
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expiresAt = createExpiryDate(SESSION_TTL_MINUTES);
 
   // Prisma 7 requires the session to be stored
   await db.session.create({
@@ -71,7 +74,7 @@ export async function getSessionUser() {
       },
     });
 
-    if (!session || session.expiresAt <= new Date()) {
+    if (!session || isExpiredDate(session.expiresAt)) {
       cookieStore.delete("auth_token");
       return null;
     }

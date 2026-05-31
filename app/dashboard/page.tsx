@@ -55,21 +55,21 @@ export default async function DashboardHome() {
   const user = await getSessionUser();
   if (!user) return null;
 
-  const [allFiles, sharedCount, uploadsToday] = await Promise.all([
-    db.file.findMany({
-      where: { userId: user.id, isDeleted: false },
-      orderBy: { createdAt: "desc" },
-      take: 6,
-    }),
-    getSharedCountSafe(user.id),
-    db.file.count({
-      where: {
-        userId: user.id,
-        isDeleted: false,
-        createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-      },
-    }),
-  ]);
+  const allFiles = await db.file.findMany({
+    where: { userId: user.id, isDeleted: false },
+    orderBy: { createdAt: "desc" },
+    take: 6,
+  });
+
+  const sharedCount = await getSharedCountSafe(user.id);
+
+  const uploadsToday = await db.file.count({
+    where: {
+      userId: user.id,
+      isDeleted: false,
+      createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+    },
+  });
 
   const fileStats = await db.file.aggregate({
     where: { userId: user.id, isDeleted: false },

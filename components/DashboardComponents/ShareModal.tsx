@@ -11,6 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  SHARE_MAX_EXPIRY_MINUTES,
+  SHARE_PASSWORD_MIN_LENGTH,
+} from "@/lib/share-constraints";
 
 interface ShareModalProps {
   open: boolean;
@@ -88,7 +92,7 @@ export function ShareModal({
 
     const minutes =
       unit === "sec" ? rawValue / 60 : unit === "hr" ? rawValue * 60 : rawValue;
-    if (minutes > 10080) {
+    if (minutes > SHARE_MAX_EXPIRY_MINUTES) {
       return { minutes: null, error: "Maximum expiry is 7 days" };
     }
 
@@ -198,7 +202,7 @@ export function ShareModal({
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Minimum 6 characters"
+                    placeholder={`Minimum ${SHARE_PASSWORD_MIN_LENGTH} characters`}
                     className="h-10 pr-10"
                     disabled={isCreating}
                   />
@@ -240,7 +244,7 @@ export function ShareModal({
                     <option value="10">10 minutes</option>
                     <option value="20">20 minutes</option>
                     <option value="1440">24 hours</option>
-                    <option value="10080">7 days</option>
+                    <option value={String(SHARE_MAX_EXPIRY_MINUTES)}>7 days</option>
                     <option value="lifetime">Lifetime</option>
                     <option value="custom">Custom Duration</option>
                   </select>

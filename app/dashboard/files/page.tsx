@@ -155,27 +155,26 @@ export default async function FilesPage({
         if (!currentFolder) return null;
 
         const folderIds = collectDescendants(currentFolderId, childrenMap);
-        const [fileAggregate, childFolderCount] = await Promise.all([
-          db.file.aggregate({
-            where: {
-              userId: user.id,
-              isDeleted: false,
-              isTrashed: false,
-              folderId: { in: folderIds },
-            },
-            _count: { _all: true },
-            _sum: { fileSize: true },
-          }),
-          db.folder.count({
-            where: {
-              userId: user.id,
-              isDeleted: false,
-              isTrashed: false,
-              id: { in: folderIds },
-              NOT: { id: currentFolderId },
-            },
-          }),
-        ]);
+        const fileAggregate = await db.file.aggregate({
+          where: {
+            userId: user.id,
+            isDeleted: false,
+            isTrashed: false,
+            folderId: { in: folderIds },
+          },
+          _count: { _all: true },
+          _sum: { fileSize: true },
+        });
+
+        const childFolderCount = await db.folder.count({
+          where: {
+            userId: user.id,
+            isDeleted: false,
+            isTrashed: false,
+            id: { in: folderIds },
+            NOT: { id: currentFolderId },
+          },
+        });
 
         return {
           id: currentFolder.id,
