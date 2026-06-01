@@ -29,14 +29,14 @@ const Hero = () => {
 
           {/* Heading */}
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl">
-            Secure Cloud Storage <br />
-            for Your Important Files
+            Securely Store, Organize <br />
+            & Share Your Files
           </h1>
 
           {/* Paragraph */}
           <p className="mx-auto mt-6 max-w-2xl text-base text-muted-foreground sm:text-lg">
-            Upload, organize, and access your files securely from anywhere with
-            CloudVault.
+            CloudVault helps you securely store files, organize folders, recover deleted
+            content, and share files with password-protected links from anywhere.
           </p>
 
           {/* Buttons */}
@@ -56,10 +56,10 @@ const Hero = () => {
           {/* Feature Pills */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             {[
-              "Secure Uploads",
-              "Protected Storage",
-              "Easy Access",
-              "Personal Dashboard",
+              "Password-Protected Sharing",
+              "Folder Organization",
+              "Activity Tracking",
+              "Trash Recovery",
             ].map((item) => (
               <div
                 key={item}

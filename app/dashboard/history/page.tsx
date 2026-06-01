@@ -12,6 +12,21 @@ export default async function HistoryPage() {
   const activities = await db.activity.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
+    include: {
+      file: {
+        select: {
+          id: true,
+          fileName: true,
+          folderId: true,
+        },
+      },
+      folder: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
     take: 200,
   });
 

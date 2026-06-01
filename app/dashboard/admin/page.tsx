@@ -146,13 +146,18 @@ export default async function AdminPage({
       </section>
 
       <Tabs value={params.tab} className="space-y-4">
-        <TabsList className="w-full justify-start gap-2 overflow-x-auto rounded-sm bg-muted/70 p-1 sm:w-fit">
+        <TabsList role="tablist" className="w-full justify-start gap-2 overflow-x-auto rounded-sm bg-muted/70 p-1 sm:w-fit">
           <TabsTrigger
             asChild
             value="users"
             className="min-w-fit rounded-md px-4 py-2"
           >
-            <Link href={tabHref("users")} scroll={false}>
+            <Link
+              href={tabHref("users")}
+              role="tab"
+              aria-current={params.tab === "users" ? "page" : undefined}
+              scroll={false}
+            >
               Users
             </Link>
           </TabsTrigger>
@@ -161,7 +166,12 @@ export default async function AdminPage({
             value="deletions"
             className="min-w-fit rounded-md px-4 py-2"
           >
-            <Link href={tabHref("deletions")} scroll={false}>
+            <Link
+              href={tabHref("deletions")}
+              role="tab"
+              aria-current={params.tab === "deletions" ? "page" : undefined}
+              scroll={false}
+            >
               Scheduled Deletions
             </Link>
           </TabsTrigger>
@@ -170,7 +180,12 @@ export default async function AdminPage({
             value="deleted"
             className="min-w-fit rounded-md px-4 py-2"
           >
-            <Link href={tabHref("deleted")} scroll={false}>
+            <Link
+              href={tabHref("deleted")}
+              role="tab"
+              aria-current={params.tab === "deleted" ? "page" : undefined}
+              scroll={false}
+            >
               Deleted Users
             </Link>
           </TabsTrigger>
@@ -179,7 +194,12 @@ export default async function AdminPage({
             value="logs"
             className="min-w-fit rounded-md px-4 py-2"
           >
-            <Link href={tabHref("logs")} scroll={false}>
+            <Link
+              href={tabHref("logs")}
+              role="tab"
+              aria-current={params.tab === "logs" ? "page" : undefined}
+              scroll={false}
+            >
               System Logs
             </Link>
           </TabsTrigger>

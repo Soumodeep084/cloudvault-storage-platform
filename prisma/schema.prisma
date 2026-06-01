@@ -22,6 +22,7 @@ enum ActivityAction {
   UPLOAD
   SHARE
   DOWNLOAD
+  SHARE_DOWNLOAD
   DELETE
 }
 
@@ -121,6 +122,7 @@ model Folder {
   children Folder[] @relation("FolderToFolder")
   files    File[]
   folderShares FolderShare[]
+  activities Activity[]
 
   @@index([userId])
   @@index([parentId])
@@ -168,15 +170,17 @@ model Activity {
   id        String         @id @default(uuid())
   userId    String
   fileId    String?
+  folderId  String?
   action    ActivityAction
   metadata  Json?
   createdAt DateTime       @default(now())
 
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   file File? @relation(fields: [fileId], references: [id], onDelete: SetNull)
-
+  folder Folder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
   @@index([userId])
   @@index([fileId])
+  @@index([folderId])
   @@index([createdAt])
 }
 

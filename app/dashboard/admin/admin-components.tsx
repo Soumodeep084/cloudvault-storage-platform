@@ -7,6 +7,7 @@ import {
   PaginationItem,
   PaginationLink,
   PaginationNext,
+  PaginationEllipsis,
   PaginationPrevious,
 } from "@/components/ui/pagination";
 // import { Table } from "@/components/ui/table";
@@ -112,6 +113,24 @@ export function Pager({
   const canGoPrev = current > 1;
   const canGoNext = current < total;
 
+  // Windowed pagination: show first, last, and a window around current with ellipses.
+  const delta = 2;
+  const left = Math.max(1, current - delta);
+  const right = Math.min(total, current + delta);
+  const pages: Array<number | "ellipsis"> = [];
+
+  if (left > 1) {
+    pages.push(1);
+    if (left > 2) pages.push("ellipsis");
+  }
+
+  for (let p = left; p <= right; p++) pages.push(p);
+
+  if (right < total) {
+    if (right < total - 1) pages.push("ellipsis");
+    pages.push(total);
+  }
+
   return (
     <Pagination>
       <PaginationContent>
@@ -124,17 +143,31 @@ export function Pager({
             </span>
           )}
         </PaginationItem>
-        {Array.from({ length: total }, (_, index) => index + 1).map((page) => (
-          <PaginationItem key={page}>
-            <PaginationLink
-              href={hrefBuilder(page)}
-              isActive={page === current}
-              size="default"
-            >
-              {page}
-            </PaginationLink>
-          </PaginationItem>
-        ))}
+
+        {pages.map((item, idx) => {
+          if (item === "ellipsis") {
+            return (
+              <PaginationItem key={`ell-${idx}`}>
+                <PaginationEllipsis />
+              </PaginationItem>
+            );
+          }
+
+          const page = item as number;
+          return (
+            <PaginationItem key={page}>
+              <PaginationLink
+                href={hrefBuilder(page)}
+                isActive={page === current}
+                size="default"
+                aria-label={`Go to page ${page}`}
+              >
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+          );
+        })}
+
         <PaginationItem>
           {canGoNext ? (
             <PaginationNext href={hrefBuilder(current + 1)} />

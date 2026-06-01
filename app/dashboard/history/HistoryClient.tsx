@@ -9,6 +9,8 @@ import {
   Download,
   Search,
   Filter,
+  Calendar,
+  Link2,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -25,14 +27,63 @@ type ActivityMeta = {
   badge?: string;
 };
 
+type ActivityFileRef = {
+  id: string;
+  fileName: string;
+  folderId: string | null;
+};
+
+type ActivityFolderRef = {
+  id: string;
+  name: string;
+};
+
 type ActivityEntry = {
   id: string;
   action: string;
   metadata: unknown;
   createdAt: string | Date;
+  file?: ActivityFileRef | null;
+  folder?: ActivityFolderRef | null;
 };
 
-function getActivityView(action: string, meta?: ActivityMeta) {
+function getActivityLabel(
+  action: string,
+  meta?: ActivityMeta,
+  file?: ActivityFileRef | null,
+  folder?: ActivityFolderRef | null,
+) {
+  if (meta?.message) return meta.message;
+
+  const isFolderActivity = Boolean(folder || meta?.kind?.includes("folder") || meta?.folderName && !meta?.fileName);
+  const noun = isFolderActivity ? "Folder" : "File";
+
+  switch (action) {
+    case "SHARE":
+      return `Shared a ${noun}`;
+    case "SHARE_DOWNLOAD":
+      return `Reciever Downloaded a shared ${noun}`;
+    case "DOWNLOAD":
+      return `Downloaded a ${noun}`;
+    default:
+      return action.replaceAll("_", " ").toLowerCase();
+  }
+}
+
+function getActivityName(
+  meta?: ActivityMeta,
+  file?: ActivityFileRef | null,
+  folder?: ActivityFolderRef | null,
+) {
+  return folder?.name || meta?.folderName || file?.fileName || meta?.fileName || "Unknown item";
+}
+
+function getActivityView(
+  action: string,
+  meta?: ActivityMeta,
+  file?: ActivityFileRef | null,
+  folder?: ActivityFolderRef | null,
+) {
   if (action === "UPLOAD" && meta?.message) {
     return {
       label: meta.message,
@@ -45,10 +96,11 @@ function getActivityView(action: string, meta?: ActivityMeta) {
   switch (action) {
     case "UPLOAD":
       return {
-        label: "Added a new file",
+        label: meta?.message || "Added a new file",
         icon: Upload,
         badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-        iconWrapClass: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200",
+        iconWrapClass:
+          "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200",
       };
     case "DELETE":
       return {
@@ -60,14 +112,21 @@ function getActivityView(action: string, meta?: ActivityMeta) {
       };
     case "SHARE":
       return {
-        label: "Shared a file",
+        label: getActivityLabel(action, meta, file, folder),
         icon: Share2,
         badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
         iconWrapClass: "bg-amber-100 text-amber-700 ring-1 ring-amber-200",
       };
+    case "SHARE_DOWNLOAD":
+      return {
+        label: getActivityLabel(action, meta, file, folder),
+        icon: Link2,
+        badgeClass: "bg-violet-50 text-violet-700 border-violet-200",
+        iconWrapClass: "bg-violet-100 text-violet-700 ring-1 ring-violet-200",
+      };
     case "DOWNLOAD":
       return {
-        label: "Shared file downloaded",
+        label: getActivityLabel(action, meta, file, folder),
         icon: Download,
         badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200",
         iconWrapClass: "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200",
@@ -86,6 +145,7 @@ const actionFilters = [
   { value: "all", label: "All activity" },
   { value: "share", label: "Shared" },
   { value: "download", label: "Downloaded" },
+  { value: "share_download", label: "Share downloads" },
   { value: "upload", label: "Uploads" },
   { value: "delete", label: "Deletes" },
 ];
@@ -96,6 +156,8 @@ function matchesActionFilter(action: string, filter: string) {
       return action === "SHARE";
     case "download":
       return action === "DOWNLOAD";
+    case "share_download":
+      return action === "SHARE_DOWNLOAD";
     case "upload":
       return action === "UPLOAD";
     case "delete":
@@ -105,7 +167,11 @@ function matchesActionFilter(action: string, filter: string) {
   }
 }
 
-export default function HistoryClient({ initialActivities }: { initialActivities: ActivityEntry[] }) {
+export default function HistoryClient({
+  initialActivities,
+}: {
+  initialActivities: ActivityEntry[];
+}) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [fromDate, setFromDate] = useState("");
@@ -121,11 +187,19 @@ export default function HistoryClient({ initialActivities }: { initialActivities
       if (!matchesActionFilter(entry.action, filter)) return false;
 
       const meta = (entry.metadata || {}) as ActivityMeta;
-      const searchText = [meta.fileName, meta.folderName, meta.message]
+      const searchText = [
+        meta.fileName,
+        meta.folderName,
+        meta.message,
+        meta.kind,
+        entry.file?.fileName,
+        entry.folder?.name,
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-      if (normalizedQuery && !searchText.includes(normalizedQuery)) return false;
+      if (normalizedQuery && !searchText.includes(normalizedQuery))
+        return false;
 
       const createdAt = new Date(entry.createdAt).getTime();
       if (fromTime && createdAt < fromTime) return false;
@@ -135,10 +209,16 @@ export default function HistoryClient({ initialActivities }: { initialActivities
     });
   }, [initialActivities, query, filter, fromDate, toDate]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredActivities.length / PAGE_SIZE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredActivities.length / PAGE_SIZE),
+  );
   const safePage = Math.min(page, totalPages);
   const startIndex = (safePage - 1) * PAGE_SIZE;
-  const paginatedActivities = filteredActivities.slice(startIndex, startIndex + PAGE_SIZE);
+  const paginatedActivities = filteredActivities.slice(
+    startIndex,
+    startIndex + PAGE_SIZE,
+  );
 
   const handlePageChange = (nextPage: number) => {
     setPage(Math.min(Math.max(nextPage, 1), totalPages));
@@ -162,13 +242,15 @@ export default function HistoryClient({ initialActivities }: { initialActivities
   return (
     <div className="space-y-6">
       <div className="px-2">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0f172a]">Activity Feed</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0f172a]">
+          Activity Feed
+        </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
           All your work: uploads, deletes, and share actions
         </p>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[2fr_1fr] lg:grid-cols-[2fr_1fr_1fr_1fr]">
+      <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 lg:grid-cols-4">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
@@ -179,7 +261,7 @@ export default function HistoryClient({ initialActivities }: { initialActivities
           />
         </div>
 
-        <label className="flex h-10 items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-slate-600">
+        <div className="flex h-10 items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-slate-600">
           <Filter className="h-4 w-4 text-slate-400" />
           <select
             value={filter}
@@ -192,34 +274,53 @@ export default function HistoryClient({ initialActivities }: { initialActivities
               </option>
             ))}
           </select>
-        </label>
+        </div>
 
-        <Input
-          type="datetime-local"
-          value={fromDate}
-          onChange={(event) => handleDateChange(event.target.value, setFromDate)}
-          className="h-10"
-        />
+        <div className="flex h-10 items-center gap-2 rounded-lg border border-input bg-background px-3">
+          <Calendar className="h-4 w-4 text-slate-400 shrink-0" />
+          <span className="text-xs font-medium text-slate-500 whitespace-nowrap">
+            From
+          </span>
+          <Input
+            type="datetime-local"
+            value={fromDate}
+            onChange={(event) =>
+              handleDateChange(event.target.value, setFromDate)
+            }
+            className="h-full border-0 p-0 shadow-none focus-visible:ring-0"
+          />
+        </div>
 
-        <Input
-          type="datetime-local"
-          value={toDate}
-          onChange={(event) => handleDateChange(event.target.value, setToDate)}
-          className="h-10"
-        />
+        <div className="flex h-10 items-center gap-2 rounded-lg border border-input bg-background px-3">
+          <Calendar className="h-4 w-4 text-slate-400 shrink-0" />
+          <span className="text-xs font-medium text-slate-500 whitespace-nowrap">
+            To
+          </span>
+          <Input
+            type="datetime-local"
+            value={toDate}
+            onChange={(event) =>
+              handleDateChange(event.target.value, setToDate)
+            }
+            className="h-full border-0 p-0 shadow-none focus-visible:ring-0"
+          />
+        </div>
       </div>
 
       {filteredActivities.length === 0 ? (
         <div className="text-center py-24 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
           <p className="text-slate-900 font-semibold">No activity found</p>
-          <p className="text-sm text-slate-500">Try a different search or filter.</p>
+          <p className="text-sm text-slate-500">
+            Try a different search or filter.
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
           {paginatedActivities.map((entry) => {
             const meta = (entry.metadata || {}) as ActivityMeta;
-            const view = getActivityView(entry.action, meta);
+            const view = getActivityView(entry.action, meta, entry.file, entry.folder);
             const Icon = view.icon;
+            const itemName = getActivityName(meta, entry.file, entry.folder);
 
             return (
               <div
@@ -234,14 +335,18 @@ export default function HistoryClient({ initialActivities }: { initialActivities
                   </div>
 
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 leading-5">{view.label}</p>
+                    <p className="text-sm font-semibold text-slate-900 leading-5">
+                      {view.label}
+                    </p>
                     {meta.message ? (
                       <p className="text-xs text-slate-500 wrap-break-word">
                         {formatDateTime(entry.createdAt)}
                       </p>
                     ) : (
                       <p className="text-xs text-slate-500 wrap-break-word">
-                        {meta.fileName || "Unknown file"} <span className="mx-1 text-slate-300">•</span> {formatDateTime(entry.createdAt)}
+                        {itemName}{" "}
+                        <span className="mx-1 text-slate-300">•</span>{" "}
+                        {formatDateTime(entry.createdAt)}
                       </p>
                     )}
                   </div>
@@ -260,7 +365,9 @@ export default function HistoryClient({ initialActivities }: { initialActivities
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
         <span>
-          Showing {startIndex + 1}-{Math.min(startIndex + PAGE_SIZE, filteredActivities.length)} of {filteredActivities.length}
+          Showing {startIndex + 1}-
+          {Math.min(startIndex + PAGE_SIZE, filteredActivities.length)} of{" "}
+          {filteredActivities.length}
         </span>
         <div className="flex items-center gap-2">
           <button

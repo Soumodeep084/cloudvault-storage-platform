@@ -76,16 +76,8 @@ export async function GET(
     await db.activity.create({
       data: {
         userId: resolvedFileShare.userId,
-        action: ActivityAction.DOWNLOAD,
+        action: "SHARE_DOWNLOAD" as ActivityAction,
         fileId: resolvedFileShare.file.id,
-        metadata: {
-          shareId: resolvedFileShare.id,
-          fileId: resolvedFileShare.file.id,
-          fileName: resolvedFileShare.file.fileName,
-          shareToken: token,
-          viewerIp: getClientIp(request),
-          viewerAgent: request.headers.get("user-agent"),
-        },
       },
     });
 
@@ -200,18 +192,8 @@ export async function GET(
     await db.activity.create({
       data: {
         userId: folderShare.userId,
-        action: ActivityAction.DOWNLOAD,
-        fileId: null,
-        metadata: {
-          shareId: folderShare.id,
-          folderId: folderShare.folder.id,
-          folderName: folderShare.folder.name,
-          shareToken: token,
-          fileCount: files.length,
-          zip: true,
-          viewerIp: getClientIp(request),
-          viewerAgent: request.headers.get("user-agent"),
-        },
+        action: ActivityAction.SHARE_DOWNLOAD,
+        folderId: folderShare.folder.id,
       },
     });
 
@@ -262,17 +244,8 @@ export async function GET(
   await db.activity.create({
     data: {
       userId: folderShare.userId,
-      action: ActivityAction.DOWNLOAD,
+      action: ActivityAction.SHARE_DOWNLOAD,
       fileId: file.id,
-      metadata: {
-        shareId: folderShare.id,
-        folderId: folderShare.folder.id,
-        fileId: file.id,
-        fileName: file.fileName,
-        shareToken: token,
-        viewerIp: getClientIp(request),
-        viewerAgent: request.headers.get("user-agent"),
-      },
     },
   });
 

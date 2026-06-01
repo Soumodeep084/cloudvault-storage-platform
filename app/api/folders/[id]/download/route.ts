@@ -6,6 +6,7 @@ import { extractStoragePathFromUrl } from "@/lib/storage-path";
 import archiver from "archiver";
 import { PassThrough, Readable } from "node:stream";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
+import { ActivityAction } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -150,6 +151,14 @@ export async function GET(
     zipStream.destroy(error);
   });
 
+  await db.activity.create({
+      data: {
+        userId: user.id,
+        action: ActivityAction.DOWNLOAD,
+        folderId: folder.id,
+      },
+    });
+
   const zipName = `${folder.name || "folder"}.zip`;
   return new NextResponse(Readable.toWeb(zipStream) as ReadableStream, {
     status: 200,
@@ -159,4 +168,7 @@ export async function GET(
       "Cache-Control": "private, no-store",
     },
   });
+
+
+  
 }

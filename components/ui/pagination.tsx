@@ -49,7 +49,7 @@ function PaginationLink({
       asChild
       variant={isActive ? "outline" : "ghost"}
       size={size}
-      className={cn(className)}
+      className={cn(className, "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50")}
     >
       <a
         aria-current={isActive ? "page" : undefined}

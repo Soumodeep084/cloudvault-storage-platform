@@ -1,6 +1,7 @@
 import { getSessionUser } from "@/lib/auth-help";
 import { db } from "@/lib/prisma";
 import { redirectToStorageObject } from "@/lib/storage-delivery";
+import { ActivityAction } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -32,6 +33,14 @@ export async function GET(
   if (!file) {
     return NextResponse.json({ message: "File not found" }, { status: 404 });
   }
+
+  await db.activity.create({
+    data: {
+      userId: user.id,
+      action: ActivityAction.DOWNLOAD,
+      fileId: id,
+    },
+  });
 
   return redirectToStorageObject({
     fileUrl: file.fileUrl,
