@@ -1,7 +1,6 @@
 "use client";
 
-import { Moon, Sun, LogOut, Settings } from "lucide-react";
-import { useTheme } from "next-themes";
+import { LogOut, Settings } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +23,6 @@ interface NavbarProps {
 }
 
 export function DashboardNavbar({ user }: NavbarProps) {
-  const { theme, setTheme } = useTheme();
   const router = useRouter();
 
   const initials =
@@ -44,16 +42,6 @@ export function DashboardNavbar({ user }: NavbarProps) {
       <SidebarTrigger className="shrink-0" variant="subtle" />
 
       <div className="flex items-center gap-2 ml-auto">
-        <Button
-          variant="subtle"
-          size="icon"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          aria-label="Toggle theme"
-        >
-          <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-        </Button>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">

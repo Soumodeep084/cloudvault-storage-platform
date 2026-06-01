@@ -21,6 +21,7 @@ const Navbar = () => {
             width={48}
             height={48}
             className="h-10 w-10 sm:h-12 sm:w-12"
+            priority
           />
 
           <span className="text-lg font-bold sm:text-xl">CloudVault</span>
